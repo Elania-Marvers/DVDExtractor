@@ -4,6 +4,7 @@ import json
 import logging
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from mimetypes import guess_type
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
@@ -13,6 +14,7 @@ from .job_manager import RipManager
 
 
 INDEX_HTML = (Path(__file__).resolve().parents[1] / "static" / "index.html").resolve()
+STATIC_ROOT = INDEX_HTML.parent
 
 
 class DVDRequestHandler(BaseHTTPRequestHandler):
@@ -51,22 +53,51 @@ class DVDRequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def _serve_index(self) -> None:
-        if not INDEX_HTML.exists():
-            self._text(500, "index.html missing")
-            return
-        try:
-            data = INDEX_HTML.read_bytes()
-        except Exception as exc:
-            logging.exception("failed reading index page")
-            self._respond_error(500, "cannot read index.html", str(exc))
+        self._serve_static("/index.html")
+
+    def _serve_static(self, request_path: str) -> None:
+        requested = (request_path or "/").lstrip("/")
+        if requested.startswith("static/"):
+            requested = requested.removeprefix("static/")
+        if requested in {"", "index.html"}:
+            file_path = INDEX_HTML
+        else:
+            if ".." in requested.split("/"):
+                self._respond_error(400, "invalid path")
+                return
+            file_path = (STATIC_ROOT / requested).resolve()
+            static_root = STATIC_ROOT.resolve()
+            if not str(file_path).startswith(f"{static_root}/"):
+                self._respond_error(400, "invalid path")
+                return
+
+        if not file_path.exists():
+            self._text(404, "file not found")
             return
 
+        try:
+            data = file_path.read_bytes()
+        except Exception as exc:
+            logging.exception("failed reading static file %s", file_path)
+            self._respond_error(500, "cannot read static file", str(exc))
+            return
+
+        suffix = file_path.suffix.lower()
+        content_type, _ = guess_type(str(file_path), strict=False)
+        if suffix == ".css":
+            content_type = "text/css; charset=utf-8"
+        elif suffix == ".js":
+            content_type = "application/javascript; charset=utf-8"
+        elif suffix == ".html":
+            content_type = "text/html; charset=utf-8"
+
         self.send_response(200)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Type", content_type or "application/octet-stream")
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
         self.send_header("Pragma", "no-cache")
         self.send_header("Expires", "0")
+        self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         self.wfile.write(data)
 
@@ -106,6 +137,10 @@ class DVDRequestHandler(BaseHTTPRequestHandler):
                 self._serve_index()
                 return
 
+            if parsed.path.startswith("/static/"):
+                self._serve_static(parsed.path)
+                return
+
             if parsed.path == "/api/info":
                 with self.jobs.lock:
                     jobs_count = len(self.jobs.jobs)
@@ -125,7 +160,7 @@ class DVDRequestHandler(BaseHTTPRequestHandler):
                 with self.jobs.lock:
                     total_jobs = len(self.jobs.jobs)
                     active_jobs = [job for job in self.jobs.jobs.values() if job.status in {"queued", "starting", "running"}]
-                    stale_jobs = [
+                    heartbeat_jobs = [
                         {
                             "id": job.id,
                             "status": job.status,
@@ -133,6 +168,10 @@ class DVDRequestHandler(BaseHTTPRequestHandler):
                             "updated_at": job.updated_at,
                             "attempts": f"{job.attempts}/{job.attempts_total}",
                             "device": job.device,
+                            "error": job.error,
+                            "log_tail": job.log_tail,
+                            "notes": getattr(job, "notes", []),
+                            "current_command": job.current_command,
                         }
                         for job in active_jobs
                     ]
@@ -143,7 +182,7 @@ class DVDRequestHandler(BaseHTTPRequestHandler):
                         "now": now,
                         "poll_interval": self.poll_interval,
                         "jobs_total": total_jobs,
-                        "active_jobs": stale_jobs,
+                        "active_jobs": heartbeat_jobs,
                         "storage_path": str(self.jobs.storage_path.resolve()),
                     },
                 )

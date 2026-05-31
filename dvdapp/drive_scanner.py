@@ -102,13 +102,34 @@ class DriveScanner:
     @classmethod
     def _is_optical_candidate(cls, drive: DriveInfo) -> bool:
         if drive.inserted:
+            return cls._contains_optical_keyword(drive.name) or cls._contains_optical_keyword(drive.drive_type) or cls._looks_like_title(drive.name)
+
+        # Les lecteurs sans média ne sont gardés que si le type est explicitement optique.
+        if not drive.state:
+            return False
+        if drive.state.lower() in {"empty", "no media"}:
+            return cls._contains_optical_keyword(drive.drive_type)
+        if cls._contains_optical_keyword(drive.name) or cls._contains_optical_keyword(drive.drive_type):
+            return True
+        return False
+
+    @staticmethod
+    def _looks_like_title(name: str) -> bool:
+        value = (name or "").strip()
+        if len(value) < 3:
+            return False
+
+        # Un titre de disque réel contient souvent un motif texte long, parfois avec underscores ou tirets.
+        # Les lecteurs SSD/HDD affichent souvent des noms de volume plus courts et techniques.
+        if value.lower().startswith("disk"):
+            return False
+
+        tokens = re.split(r"\s+", value)
+        if len(tokens) >= 2:
             return True
 
-        state = (drive.state or "").lower()
-        if state in {"empty", "no media"}:
-            return True
-
-        return cls._contains_optical_keyword(drive.name) or cls._contains_optical_keyword(drive.drive_type)
+        # Cas de titres composés d'un seul token mais volumineux (ex: `HUNGER_GAMES`).
+        return len(value) >= 10
 
     def _from_drutil(self) -> List[DriveInfo]:
         if not which("drutil"):
