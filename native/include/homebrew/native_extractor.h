@@ -1,0 +1,53 @@
+#ifndef DVDEXTRACTOR_HOMEBREW_NATIVE_EXTRACTOR_H_
+#define DVDEXTRACTOR_HOMEBREW_NATIVE_EXTRACTOR_H_
+
+#include <cstdint>
+#include <filesystem>
+#include <string>
+#include <vector>
+
+#include "homebrew/models.h"
+
+namespace fs = std::filesystem;
+
+namespace dvdextractor::homebrew {
+
+class NativeDvdExtractor final {
+public:
+    struct Options {
+        fs::path video_ts;
+        fs::path output;
+        fs::path work_dir;
+        std::string ffmpeg{"ffmpeg"};
+        int title{0};
+        bool keep_temp{false};
+    };
+
+    struct Result {
+        int title{0};
+        std::uint64_t bytes_prepared{0};
+        fs::path temp_vob;
+        fs::path output;
+    };
+
+    explicit NativeDvdExtractor(Options options);
+
+    [[nodiscard]] Result extract() const;
+
+private:
+    [[nodiscard]] TitleManifest pick_title(const std::vector<TitleManifest>& titles) const;
+    [[nodiscard]] fs::path build_temp_path(int title) const;
+    [[nodiscard]] std::uint64_t prepare_program_stream(const TitleManifest& title, const fs::path& temp_vob) const;
+    [[nodiscard]] bool transcode_to_mp4(const fs::path& input_vob) const;
+    [[nodiscard]] std::vector<std::string> build_ffmpeg_args(
+        const fs::path& input_vob,
+        bool with_audio,
+        bool force_mpeg_input) const;
+    [[nodiscard]] bool valid_output() const;
+
+    Options options_;
+};
+
+}  // namespace dvdextractor::homebrew
+
+#endif  // DVDEXTRACTOR_HOMEBREW_NATIVE_EXTRACTOR_H_

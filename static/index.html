@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>DVD Extractor • Desktop Engine</title>
+  <title>DVD Extractor • Web Control</title>
   <link rel="stylesheet" href="/static/app.css" />
 </head>
 <body>
@@ -12,23 +12,28 @@
   <main class="app">
     <header class="topbar">
       <h1>DVD Extractor</h1>
-      <p class="subtitle">Bureau · détection des lecteurs, rip, transcodage MP4 et suivi temps réel (mode ingénieur activable).</p>
+      <p class="subtitle">Détection lecteurs, rip MP4 et suivi jobs en temps réel.</p>
+
       <div class="chips">
         <span class="chip">Actualisation: <strong id="poll">2</strong>s</span>
         <span class="chip">Stockage: <code id="storage">…</code></span>
-        <span class="chip heartbeat"><span class="pulse" id="hb-dot"></span><strong id="hb-state">heartbeat en attente</strong></span>
+        <span class="chip heartbeat">
+          <span class="pulse" id="hb-dot"></span>
+          <strong id="hb-state">heartbeat en attente</strong>
+        </span>
         <span class="chip" id="stat-drives">Lecteurs : …</span>
         <span class="chip" id="stat-jobs">Jobs : …</span>
         <span class="chip" id="stat-files">MP4 : …</span>
-        <span class="chip">Mode</span>
+        <span class="chip" id="files-count">Fichiers : …</span>
       </div>
+
       <div class="chips">
-        <span class="mode-switch" title="Mode d'extraction">
+        <span class="mode-switch">
           <button id="mode-normal" type="button" data-mode="normal">Mode Normal</button>
           <button id="mode-engineer" type="button" data-mode="engineer">Mode Ingénieur</button>
         </span>
         <span class="chip" id="mode-tag">Mode: normal</span>
-        <span class="chip" id="mode-help">Mode normal: ffmpeg direct</span>
+        <span class="chip" id="mode-help">Mode normal: ffmpeg standard</span>
       </div>
     </header>
 
@@ -82,7 +87,7 @@
 
       <section class="card" style="grid-column: 1 / -1;">
         <h2 class="section-title">Erreurs et événements</h2>
-        <div id="error-stream" class="error-console">En attente d\'événements…</div>
+        <div id="error-stream" class="error-console">En attente d'événements…</div>
       </section>
 
       <section class="card" style="grid-column: 1 / -1;">
@@ -92,6 +97,6 @@
     </section>
   </main>
 
-  <script src="/static/app.js" defer></script>
+  <script type="module" src="/static/js/app.js" defer></script>
 </body>
 </html>

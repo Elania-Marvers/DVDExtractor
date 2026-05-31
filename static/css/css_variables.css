@@ -1,0 +1,14 @@
+:root {
+  --bg-1: #100b1b;
+  --bg-2: #1b1025;
+  --bg-3: #2a1540;
+  --surface: rgba(29, 20, 36, 0.92);
+  --line: rgba(255, 255, 255, 0.14);
+  --text: #efe6ff;
+  --muted: #b9a3cc;
+  --ok: #10b981;
+  --warn: #f59e0b;
+  --danger: #ef4444;
+  --shadow: 0 16px 34px rgba(0, 0, 0, 0.35);
+  --radius: 14px;
+}

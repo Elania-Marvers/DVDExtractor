@@ -1,0 +1,103 @@
+.toast-wrap {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 30;
+  display: grid;
+  gap: 8px;
+  width: min(340px, calc(100vw - 24px));
+}
+
+.topbar {
+  border: 1px solid var(--line);
+  background: rgba(16, 11, 24, 0.9);
+  border-radius: var(--radius);
+  padding: 14px;
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 10px;
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: 28px;
+  letter-spacing: 0.01em;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.chip {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 5px 10px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--muted);
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.mode-switch {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  display: inline-flex;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.mode-switch button {
+  border: 0;
+  appearance: none;
+  padding: 7px 12px;
+  min-width: 110px;
+  background: transparent;
+  color: #cab8df;
+  cursor: pointer;
+}
+
+.mode-switch button.active {
+  background: linear-gradient(90deg, #9f62c9, #5b2ea4);
+  color: #fff;
+}
+
+.grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 1100px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.card {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 12px;
+  min-width: 0;
+}
+
+.section-title {
+  margin: 0 0 10px;
+  font-size: 17px;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.meta {
+  font-size: 12px;
+  color: var(--muted);
+}

@@ -39,7 +39,12 @@ Le mode ingénieur est configurable via le bouton dans l'UI.
 - `main.py` : point d'entrée serveur HTTP.
 - `dvdapp/` : cœur Python (scanner, jobs, serveur).
 - `dvdapp/vob_manifest.py` : wrapper qui appelle le scanner natif.
-- `native/` : utilitaires C/C++/ASM (`dvd_entropy`, `dvd_vob_manifest`).
+- `native/` : utilitaires C/C++/ASM structurés proprement (`native/src/*` + `native/include/*`) pour les binaires :
+  - `dvd_entropy`
+  - `dvd_vob_manifest`
+  - `dvd_reader_dump`
+  - `dvd_homebrew`
+  - `dvd_signal_probe`
 - `static/index.html`, `static/css/app.css`, `static/js/app.js` : UI desktop (Sakura), logs visibles en direct.
 
 ## Commandes utiles
@@ -72,4 +77,3 @@ Le mode ingénieur est configurable via le bouton dans l'UI.
 4. `-dvd_device` + format `-f dvd` quand dispo.
 5. Montage `VIDEO_TS` direct + concat VOB.
 6. `HandBrakeCLI` si installé.
-

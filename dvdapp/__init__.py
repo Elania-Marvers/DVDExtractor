@@ -2,7 +2,8 @@
 
 from .config import Settings, build_settings
 from .drive_scanner import DriveInfo, DriveScanner
-from .job_manager import RipJob, RipManager
+from .models import RipJob
+from .job_manager import RipManager
 
 __all__ = [
     "Settings",
