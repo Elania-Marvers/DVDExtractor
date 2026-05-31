@@ -216,3 +216,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# DVD extractor local artifacts
+storage_local/
+native/*.o
+native/build/
+native/dvd_entropy

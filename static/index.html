@@ -1,0 +1,851 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DVD Extractor</title>
+  <style>
+    :root {
+      --bg: radial-gradient(130% 130% at 12% -8%, #273c69 0%, #11213d 45%, #05070f 100%);
+      --surface: rgba(16, 27, 52, 0.84);
+      --surface-soft: rgba(17, 29, 55, 0.72);
+      --line: #273b66;
+      --text: #e2e8f0;
+      --muted: #98a9c7;
+      --radius: 14px;
+      --shadow: 0 18px 45px rgba(2, 6, 23, 0.52);
+      --vision: linear-gradient(120deg, #22d3ee 0%, #818cf8 100%);
+      --warning: #fbbf24;
+      --ok: #22d3ee;
+      --danger: #fb7185;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { max-width: 100%; overflow-x: hidden; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 18px;
+      font-family: "Avenir Next", "Poppins", "Segoe UI", Arial, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      line-height: 1.35;
+    }
+
+    .app {
+      max-width: 1600px;
+      margin: 0 auto;
+      display: grid;
+      gap: 14px;
+    }
+
+    .topbar {
+      position: relative;
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      border-radius: 16px;
+      padding: 16px 18px;
+      background: linear-gradient(130deg, rgba(56, 189, 248, 0.2), rgba(129, 140, 248, 0.16));
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(8px);
+      display: grid;
+      gap: 8px;
+      overflow: hidden;
+    }
+
+    .topbar::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(150deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0));
+    }
+
+    .topbar h1 {
+      margin: 0;
+      font-size: 30px;
+      font-weight: 650;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .chip {
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      background: rgba(10, 15, 28, 0.74);
+      border-radius: 999px;
+      padding: 6px 11px;
+      font-size: 12px;
+      color: #e2e8f0;
+      white-space: nowrap;
+    }
+
+    .chip.vision {
+      border-color: rgba(129, 140, 248, 0.62);
+      background: rgba(99, 102, 241, 0.18);
+      color: #e0e7ff;
+    }
+
+    .chip strong { color: #f8fafc; }
+
+    .chip code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 12px;
+      color: #f8fafc;
+      background: transparent;
+      border: 0;
+      padding: 0;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+    }
+
+    @media (min-width: 1180px) {
+      .grid {
+        grid-template-columns: minmax(0, 2.1fr) minmax(0, 2.1fr) minmax(0, 1fr);
+      }
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      backdrop-filter: blur(5px);
+      box-shadow: var(--shadow);
+      padding: 12px;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .card h2 {
+      margin: 0 0 10px;
+      font-size: 17px;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 10px;
+    }
+
+    .meta {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.2;
+    }
+
+    .table-wrap {
+      border: 1px solid rgba(148, 163, 184, 0.24);
+      border-radius: 12px;
+      overflow-x: hidden;
+      overflow-y: auto;
+      background: var(--surface-soft);
+      min-height: 180px;
+      max-height: 420px;
+    }
+
+    table {
+      width: 100%;
+      table-layout: fixed;
+      border-collapse: collapse;
+      min-width: 100%;
+      font-size: 13px;
+    }
+
+    thead th,
+    tbody td {
+      padding: 9px 10px;
+      text-align: left;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+      vertical-align: top;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      white-space: normal;
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      background: rgba(15, 23, 42, 0.95);
+      color: #cbd5e1;
+      text-transform: uppercase;
+      font-size: 10px;
+      letter-spacing: 0.06em;
+      z-index: 1;
+    }
+
+    tr td,
+    tr th {
+      max-width: 0;
+    }
+
+    tbody tr:hover td {
+      background: rgba(148, 163, 184, 0.08);
+    }
+
+    .muted { color: var(--muted); }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 11px; }
+    .tiny { font-size: 11px; color: var(--muted); }
+
+    .pill {
+      display: inline-flex;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      padding: 3px 10px;
+      font-size: 10px;
+      white-space: nowrap;
+    }
+
+    .pill.ok { background: rgba(16, 185, 129, 0.18); color: #a7f3d0; }
+    .pill.fail { background: rgba(248, 113, 113, 0.18); color: #fecaca; }
+    .pill.run { background: rgba(59, 130, 246, 0.18); color: #bfdbfe; }
+    .pill.wait { background: rgba(251, 191, 36, 0.18); color: #fde68a; }
+    .pill.canc { background: rgba(249, 115, 22, 0.2); color: #fed7aa; }
+
+    .btn {
+      border: 0;
+      border-radius: 9px;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 8px 10px;
+      color: #fff;
+      cursor: pointer;
+      transition: transform 0.12s ease, filter 0.12s ease;
+      white-space: nowrap;
+    }
+
+    .btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      filter: grayscale(0.2);
+    }
+
+    .btn:hover:not(:disabled) {
+      transform: translateY(-1px);
+      filter: brightness(1.08);
+    }
+
+    .btn-primary { background: linear-gradient(130deg, #06b6d4, #14b8a6); }
+    .btn-danger { background: linear-gradient(130deg, #f43f5e, #fb7185); }
+
+    .progressWrap {
+      display: grid;
+      gap: 4px;
+      min-width: 150px;
+    }
+
+    .progress {
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(148, 163, 184, 0.2);
+      overflow: hidden;
+    }
+
+    .progress span {
+      display: block;
+      height: 100%;
+      background: linear-gradient(90deg, #22d3ee, #34d399);
+      border-radius: inherit;
+      transition: width 0.22s linear;
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    pre {
+      margin: 6px 0 0;
+      max-height: 220px;
+      overflow: auto;
+      border: 1px solid rgba(148, 163, 184, 0.23);
+      border-radius: 8px;
+      background: #020617;
+      padding: 7px;
+      color: #e2e8f0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      overflow-x: hidden;
+      font-size: 11px;
+    }
+
+    .job-log {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .job-log pre {
+      margin: 0;
+      max-height: 140px;
+      min-height: 58px;
+      width: 100%;
+      overflow-y: auto;
+      overflow-x: hidden;
+      white-space: pre-wrap;
+      border-color: rgba(248, 113, 113, 0.35);
+      background: #0b1224;
+    }
+
+    .log-error {
+      color: #fca5a5;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+      min-width: 0;
+      display: block;
+    }
+
+    .empty {
+      padding: 14px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .toasts {
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      z-index: 20;
+      display: grid;
+      gap: 8px;
+      width: min(340px, calc(100vw - 24px));
+    }
+
+    .toast {
+      border-radius: 10px;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      padding: 10px 12px;
+      animation: pop .15s ease;
+      font-size: 13px;
+      line-height: 1.3;
+      box-shadow: 0 10px 18px rgba(2, 6, 23, 0.45);
+    }
+
+    .toast.ok { background: rgba(6, 78, 59, 0.72); color: #a7f3d0; }
+    .toast.err { background: rgba(127, 29, 29, 0.75); color: #fecaca; }
+
+    .heartbeat {
+      display: inline-flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .pulse {
+      width: 9px;
+      height: 9px;
+      border-radius: 99px;
+      background: var(--ok);
+      box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.55);
+      animation: pulse 1.2s infinite;
+    }
+
+    .pulse.off { background: var(--warning); box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.35); animation: none; }
+    .pulse.fail { background: var(--danger); animation: none; }
+
+    @keyframes pulse {
+      0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.65); }
+      70% { transform: scale(1.12); box-shadow: 0 0 0 9px rgba(34, 211, 238, 0); }
+      100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(34, 211, 238, 0); }
+    }
+
+    .debug-console {
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      border-radius: 12px;
+      padding: 10px;
+      background: rgba(9, 17, 35, 0.6);
+      color: #dbeafe;
+      min-height: 170px;
+      max-height: 250px;
+      overflow: auto;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 11px;
+      line-height: 1.3;
+      white-space: pre-wrap;
+      word-break: break-word;
+      overflow-x: hidden;
+    }
+
+    @keyframes pop {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: none; }
+    }
+
+    #drives-table th:nth-child(1), #drives-table td:nth-child(1) { width: 40%; }
+    #drives-table th:nth-child(2), #drives-table td:nth-child(2) { width: 15%; }
+    #drives-table th:nth-child(3), #drives-table td:nth-child(3) { width: 12%; }
+    #drives-table th:nth-child(4), #drives-table td:nth-child(4) { width: 20%; }
+    #drives-table th:nth-child(5), #drives-table td:nth-child(5) { width: 13%; }
+
+    #jobs-table th:nth-child(1), #jobs-table td:nth-child(1) { width: 8%; }
+    #jobs-table th:nth-child(2), #jobs-table td:nth-child(2) { width: 34%; }
+    #jobs-table th:nth-child(3), #jobs-table td:nth-child(3) { width: 10%; }
+    #jobs-table th:nth-child(4), #jobs-table td:nth-child(4) { width: 10%; }
+    #jobs-table th:nth-child(5), #jobs-table td:nth-child(5) { width: 30%; }
+    #jobs-table th:nth-child(6), #jobs-table td:nth-child(6) { width: 8%; }
+
+    #files-table th:nth-child(1), #files-table td:nth-child(1) { width: 46%; }
+    #files-table th:nth-child(2), #files-table td:nth-child(2) { width: 12%; }
+    #files-table th:nth-child(3), #files-table td:nth-child(3) { width: 22%; }
+    #files-table th:nth-child(4), #files-table td:nth-child(4) { width: 20%; }
+
+    .status-badge-text {
+      display: inline-block;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .action-col button { width: 100%; min-width: 0; }
+
+    .title-block {
+      display: grid;
+      gap: 5px;
+      min-width: 0;
+    }
+
+    .title-block .name {
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .action-col {
+      white-space: nowrap;
+    }
+
+    .mono-muted {
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div id="toasts" class="toasts"></div>
+
+  <div class="app">
+    <section class="topbar">
+      <h1>DVD Extractor • Vision Pro</h1>
+      <p class="subtitle">Mode debug live (heartbeat + logs directs), détection lecteurs + rip DVD en direct.</p>
+      <div class="chips">
+        <span class="chip">Actualisation: <strong id="poll">2</strong>s</span>
+        <span class="chip vision">Vision Pro</span>
+        <span class="chip">Stockage: <code id="storage">…</code></span>
+        <span class="chip heartbeat"><span class="pulse" id="hb-dot"></span><strong id="hb-state">heartbeat en attente</strong></span>
+        <span class="chip">Mode: FFmpeg + fallback</span>
+      </div>
+      <div class="chips">
+        <span class="chip" id="stat-drives">Lecteurs : …</span>
+        <span class="chip" id="stat-jobs">Jobs : …</span>
+        <span class="chip" id="stat-files">MP4 : …</span>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="card">
+        <h2>
+          <span>Lecteurs détectés</span>
+          <span class="meta" id="drives-count"></span>
+        </h2>
+        <div class="table-wrap">
+          <table id="drives-table">
+            <thead>
+              <tr>
+                <th>Lecteur</th>
+                <th>Type</th>
+                <th>État</th>
+                <th>Chiffrement</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="drives-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>
+          <span>Jobs actifs</span>
+          <span class="meta" id="jobs-count"></span>
+        </h2>
+        <div class="table-wrap">
+          <table id="jobs-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Disque</th>
+                <th>Statut</th>
+                <th>Progress</th>
+                <th>Log</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="jobs-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>MP4 générés</h2>
+        <div id="files"></div>
+      </div>
+
+      <div class="card">
+        <h2>Debug live</h2>
+        <div id="debug-stream" class="debug-console">En attente du pulse serveur…</div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const pollSeconds = 2;
+    document.getElementById('poll').textContent = pollSeconds;
+    const heartbeatInterval = 1000;
+    const debugLines = [];
+
+    const statusClass = {
+      completed: 'ok',
+      failed: 'fail',
+      running: 'run',
+      starting: 'wait',
+      queued: 'wait',
+      cancelling: 'canc',
+      cancelled: 'canc',
+    };
+
+    const statusLabel = {
+      completed: 'Terminé',
+      failed: 'Échec',
+      running: 'En cours',
+      starting: 'Démarrage',
+      queued: 'En attente',
+      cancelling: 'Annulation',
+      cancelled: 'Annulé',
+    };
+
+    function esc(value) {
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function bytes(v) {
+      const n = Number(v);
+      if (!Number.isFinite(n)) return '0 B';
+      if (n < 1024) return `${n} B`;
+      const kb = n / 1024;
+      if (kb < 1024) return `${kb.toFixed(1)} KB`;
+      const mb = kb / 1024;
+      if (mb < 1024) return `${mb.toFixed(2)} MB`;
+      return `${(mb / 1024).toFixed(2)} GB`;
+    }
+
+    function progress(percent) {
+      const n = Number(percent);
+      const pct = Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 0;
+      const text = Number.isFinite(n) ? `${pct.toFixed(1)}%` : '-';
+      return `
+        <div class="progressWrap">
+          <div class="progress"><span style="width:${pct.toFixed(1)}%"></span></div>
+          <span class="small">${text}</span>
+        </div>
+      `;
+    }
+
+    async function fetchJSON(url, options) {
+      const r = await fetch(url, options);
+      const text = await r.text();
+      if (!r.ok) {
+        let msg = text || `HTTP ${r.status}`;
+        try {
+          const parsed = JSON.parse(text);
+          msg = parsed.error || msg;
+        } catch (_) {}
+        throw new Error(msg);
+      }
+      return text ? JSON.parse(text) : {};
+    }
+
+    function notify(msg, isError = false) {
+      const host = document.getElementById('toasts');
+      const el = document.createElement('div');
+      el.className = `toast ${isError ? 'err' : 'ok'}`;
+      el.textContent = msg;
+      host.prepend(el);
+      setTimeout(() => el.remove(), isError ? 5000 : 3000);
+    }
+
+    function rowEmpty(body, cols, text) {
+      body.innerHTML = `<tr><td colspan="${cols}" class="empty">${esc(text)}</td></tr>`;
+    }
+
+    function renderDrives(items) {
+      const body = document.getElementById('drives-body');
+      body.innerHTML = '';
+      document.getElementById('drives-count').textContent = `${items.length} trouvé(s)`;
+      document.getElementById('stat-drives').textContent = `Lecteurs : ${items.length}`;
+
+      if (!items.length) {
+        rowEmpty(body, 5, 'Aucun lecteur détecté');
+        return;
+      }
+
+      for (const item of items) {
+        const enc = item.encryption || {};
+        const encText = (enc.encrypted === null || typeof enc.encrypted === 'undefined')
+          ? `Méthode: ${esc(enc.method || 'inconnue')}`
+          : `${enc.encrypted ? 'Oui' : 'Non'} (${esc(enc.method || 'n/a')})`;
+        const stateLabel = (item.state || 'unknown').toLowerCase();
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>
+            <div class="title-block">
+              <span class="name">${esc(item.name || 'Lecteur inconnu')}</span>
+              <span class="mono mono-muted">${esc(item.device || '-')}</span>
+            </div>
+          </td>
+          <td class="muted">${esc(item.drive_type || '-')}</td>
+          <td><span class="pill ${stateLabel === 'inserted' ? 'ok' : stateLabel === 'empty' ? 'canc' : 'wait'}">${esc(item.state || 'unknown')}</span></td>
+          <td><span class="pill wait">${encText}</span></td>
+          <td class="action-col">
+            <button class="btn btn-primary" ${item.inserted ? '' : 'disabled'} data-device="${esc(item.device || '')}" data-title="${esc(item.name || 'dvd')}">Copier -> MP4</button>
+          </td>
+        `;
+
+        const btn = tr.querySelector('button');
+        btn.addEventListener('click', () => startRip(item.device || '', item.name || 'dvd'));
+        body.appendChild(tr);
+      }
+    }
+
+    function renderJobs(items) {
+      const body = document.getElementById('jobs-body');
+      body.innerHTML = '';
+      document.getElementById('jobs-count').textContent = `${items.length} actif(s)`;
+      document.getElementById('stat-jobs').textContent = `Jobs : ${items.length}`;
+
+      if (!items.length) {
+        rowEmpty(body, 6, 'Aucun job actif');
+        return;
+      }
+
+      for (const job of items) {
+        const status = job.status || 'queued';
+        const cls = statusClass[status] || 'wait';
+        const label = statusLabel[status] || status;
+        const shortId = (job.id || '').slice(0, 8);
+        const err = job.error ? esc(job.error) : 'Aucune erreur détectée pour le moment';
+        const logsText = (job.log_tail || '').trim();
+        const logs = esc(logsText || 'Aucun log disponible');
+        const hasErrorHint = /error|failed|invalid|unable|ffmpeg exited|No such file|not found|unrecognized/i.test(logsText);
+        const logClass = status === 'failed' || hasErrorHint ? 'log-error' : 'muted';
+        const attempt = job.attempts && job.attempts_total ? `${job.attempts}/${job.attempts_total}` : '-';
+        const currentCmd = (job.current_command || '').trim();
+        const cmdText = currentCmd ? esc(currentCmd) : 'Aucune commande en cours';
+        const hb = Number.isFinite(job.heartbeat) ? new Date(job.heartbeat * 1000).toLocaleTimeString() : '-';
+        const canCancel = ['queued', 'starting', 'running'].includes(status);
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><span class="mono muted" title="${esc(job.id || '')}">${esc(shortId || '-')}</span></td>
+          <td>
+            <div class="title-block">
+              <span>${esc(job.device || '-')}</span>
+              <span class="mono mono-muted">${esc(job.storage_path || '-')}</span>
+              <span class="tiny">${attempt} · ${cmdText}</span>
+              <span class="tiny">Heartbeat: ${hb}</span>
+            </div>
+          </td>
+          <td><span class="pill ${cls} status-badge-text">${label}</span></td>
+          <td>${progress(job.progress)}</td>
+          <td>
+            <div class="job-log">
+              <span class="${logClass}">${err}</span>
+              <pre>${logs}</pre>
+            </div>
+          </td>
+          <td class="action-col">${canCancel ? `<button class="btn btn-danger" data-job="${esc(job.id || '')}">Annuler</button>` : ''}</td>
+        `;
+
+        if (canCancel) {
+          const btn = tr.querySelector('button[data-job]');
+          btn.addEventListener('click', () => cancelJob(btn.getAttribute('data-job') || ''));
+        }
+        body.appendChild(tr);
+      }
+    }
+
+    function renderFiles(items) {
+      const box = document.getElementById('files');
+      document.getElementById('stat-files').textContent = `MP4 : ${items.length}`;
+
+      if (!items.length) {
+        box.innerHTML = '<div class="empty">Aucun fichier généré pour le moment.</div>';
+        return;
+      }
+
+      const rows = items.map((file) => `
+        <tr>
+          <td>${esc(file.name)}</td>
+          <td class="muted">${bytes(file.size)}</td>
+          <td class="muted">${esc(new Date(file.modified).toLocaleString())}</td>
+          <td><a href="${esc(file.url)}">Télécharger</a></td>
+        </tr>
+      `).join('');
+
+      box.innerHTML = `
+        <div class="table-wrap">
+          <table id="files-table">
+            <thead>
+              <tr>
+                <th>Nom</th>
+                <th>Taille</th>
+                <th>Modifié</th>
+                <th>Lien</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    async function loadInfo() {
+      try {
+        const data = await fetchJSON('/api/info');
+        document.getElementById('storage').textContent = data.storage_path || 'non configuré';
+      } catch {
+        document.getElementById('storage').textContent = 'indisponible';
+      }
+    }
+
+    async function loadDrives() {
+      const data = await fetchJSON('/api/drives');
+      renderDrives(data.drives || []);
+    }
+
+    async function loadJobs() {
+      const data = await fetchJSON('/api/jobs');
+      renderJobs(data.jobs || []);
+    }
+
+    async function loadFiles() {
+      const data = await fetchJSON('/api/files');
+      renderFiles(data.files || []);
+    }
+
+    async function loadHeartbeat() {
+      try {
+        const data = await fetchJSON('/api/heartbeat');
+        const hbDot = document.getElementById('hb-dot');
+        const hbState = document.getElementById('hb-state');
+
+        const ageMs = (Date.now() / 1000 - Number(data.now || 0)) * 1000;
+        const age = Math.max(0, Math.round(ageMs));
+        if (hbDot && hbState) {
+          hbDot.classList.remove('off', 'fail');
+          hbState.textContent = `Heartbeat ${age <= 2000 ? 'ok' : 'légèrement lent'} · ${age} ms`;
+          if (age > 2000) {
+            hbDot.classList.add('off');
+          }
+        }
+
+        const count = Number(data.active_jobs?.length || 0);
+        const lines = [];
+        lines.push(`heartbeat: ${new Date((data.now || 0) * 1000).toLocaleTimeString()}`);
+        lines.push(`jobs: ${data.jobs_total || 0} · actifs: ${count}`);
+        for (const job of data.active_jobs || []) {
+          const short = (job.id || '').slice(0, 8);
+          lines.push(`${short} ${job.status} tentative ${job.attempts || '-'} device=${job.device || '-'}`);
+        }
+        pushDebugLine(lines.join(' | '));
+      } catch (err) {
+        const hbDot = document.getElementById('hb-dot');
+        const hbState = document.getElementById('hb-state');
+        if (hbDot) hbDot.classList.add('fail');
+        if (hbState) hbState.textContent = `Heartbeat perdu: ${err.message || 'erreur'}`;
+      }
+    }
+
+    function pushDebugLine(line) {
+      const panel = document.getElementById('debug-stream');
+      if (!panel) {
+        return;
+      }
+      debugLines.push(`[${new Date().toLocaleTimeString()}] ${line}`);
+      if (debugLines.length > 24) {
+        debugLines.shift();
+      }
+      panel.textContent = debugLines.join('\n');
+      panel.scrollTop = panel.scrollHeight;
+    }
+
+    async function startRip(device, title) {
+      if (!device) return;
+      try {
+        await fetchJSON('/api/rip', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ device, title }),
+        });
+        notify(`Extraction lancée: ${title}`);
+      } catch (err) {
+        notify(err.message || "Impossible de lancer l\'extraction", true);
+      }
+      await loadJobs();
+    }
+
+    async function cancelJob(jobId) {
+      if (!jobId) return;
+      try {
+        const r = await fetch(`/api/rip/${encodeURIComponent(jobId)}`, { method: 'DELETE' });
+        const text = await r.text();
+        if (!r.ok) {
+          let msg = text;
+          try {
+            const parsed = JSON.parse(text);
+            if (parsed && parsed.error) {
+              msg = parsed.error;
+            }
+          } catch (_) {}
+          throw new Error(msg || `HTTP ${r.status}`);
+        }
+        notify(`Annulation demandée: ${jobId}`);
+      } catch (err) {
+        notify(err.message || "Impossible d\'annuler", true);
+      }
+      await loadJobs();
+    }
+
+    async function refreshAll() {
+      try {
+        await Promise.all([loadInfo(), loadDrives(), loadJobs(), loadFiles()]);
+      } catch (err) {
+        notify(err.message || 'Erreur de rafraîchissement', true);
+        pushDebugLine(`refreshAll: ${err.message || 'erreur inconnue'}`);
+      }
+    }
+
+    refreshAll();
+    loadHeartbeat();
+    setInterval(refreshAll, pollSeconds * 1000);
+    setInterval(loadHeartbeat, heartbeatInterval);
+  </script>
+</body>
+</html>
