@@ -159,7 +159,7 @@ class NativeDumpPlanStrategy(ExtractionPlanStrategy):
         ]
 
         if not without_audio:
-            argv.extend(["-c:a", "aac", "-b:a", "192k", "-map", "0:a:0?"])
+            argv.extend(["-c:a", "aac", "-b:a", "192k", "-map", "0:a?"])
 
         argv.extend(
             [

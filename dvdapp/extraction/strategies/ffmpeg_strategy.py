@@ -62,7 +62,7 @@ class FfmpegSourcePlanStrategy(ExtractionPlanStrategy):
         base_input = FfmpegProfileSpec.base_argv(self.profile.ffmpeg)
 
         tolerant = ["-fflags", "+genpts", "-err_detect", "ignore_err", "-ignore_unknown"]
-        common_map = ["-map", "0:v:0?", "-map", "0:a:0?"]
+        common_map = ["-map", "0:v:0?", "-map", "0:a?"]
         mux_out = ["-sn", "-dn", "-movflags", "+faststart"]
 
         profiles: list[tuple[str, list[str]]] = [

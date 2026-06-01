@@ -382,7 +382,7 @@ func buildFfmpegArgs(input, output string, withAudio bool, forceInputFormat bool
 			"-ac",
 			"2",
 			"-map",
-			"0:a:0?",
+			"0:a?",
 		)
 	} else {
 		base = append(base, "-an")

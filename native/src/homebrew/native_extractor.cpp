@@ -223,7 +223,7 @@ std::vector<std::string> NativeDvdExtractor::build_ffmpeg_args(
             "-ac",
             "2",
             "-map",
-            "0:a:0?",
+            "0:a?",
         });
     } else {
         args.push_back("-an");

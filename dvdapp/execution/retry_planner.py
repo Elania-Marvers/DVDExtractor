@@ -221,7 +221,7 @@ class DvdRetryPlanner(BaseRetryPlanner):
                     "-map",
                     "0:v:0?",
                     "-map",
-                    "0:a:0?",
+                    "0:a?",
                     "-c:v",
                     "libx264",
                     "-preset",
@@ -290,7 +290,7 @@ class DvdRetryPlanner(BaseRetryPlanner):
                         "-map",
                         "0:v:0?",
                         "-map",
-                        "0:a:0?",
+                        "0:a?",
                     ],
                 )
 

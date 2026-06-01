@@ -326,7 +326,7 @@ class VobPlanStrategy(ExtractionPlanStrategy):
             "-map",
             "0:v:0?",
             "-map",
-            "0:a:0?",
+            "0:a?",
             "-movflags",
             "+faststart",
             "-sn",
@@ -472,7 +472,7 @@ class VobPlanStrategy(ExtractionPlanStrategy):
                     "-map",
                     "0:v:0?",
                     "-map",
-                    "0:a:0?",
+                    "0:a?",
                     "-sn",
                     "-dn",
                 ],
@@ -505,7 +505,7 @@ class VobPlanStrategy(ExtractionPlanStrategy):
                     "-map",
                     "0:v:0?",
                     "-map",
-                    "0:a:0?",
+                    "0:a?",
                     "-sn",
                     "-dn",
                 ],
@@ -574,7 +574,7 @@ class VobPlanStrategy(ExtractionPlanStrategy):
                     "-map",
                     "0:v:0?",
                     "-map",
-                    "0:a:0?",
+                    "0:a?",
                     "-sn",
                     "-dn",
                     output,
@@ -654,7 +654,7 @@ class VobPlanStrategy(ExtractionPlanStrategy):
                 argv.extend(["-an"])
 
         if include_audio:
-            argv.extend(["-map", "0:v:0?", "-map", "0:a:0?"])
+            argv.extend(["-map", "0:v:0?", "-map", "0:a?"])
         else:
             argv.extend(["-map", "0:v:0?"])
 

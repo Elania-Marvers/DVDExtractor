@@ -801,7 +801,7 @@ class RipManager:
                 skip_next = True
                 continue
 
-            if token == "-map" and index + 1 < len(cleaned) and str(cleaned[index + 1]).startswith("0:a:"):
+            if token == "-map" and index + 1 < len(cleaned) and str(cleaned[index + 1]).startswith("0:a"):
                 skip_next = True
                 continue
 
@@ -829,7 +829,7 @@ class RipManager:
                 skip_next = True
                 continue
 
-            if token == "-map" and index + 1 < len(argv) and str(argv[index + 1]).startswith("0:a:"):
+            if token == "-map" and index + 1 < len(argv) and str(argv[index + 1]).startswith("0:a"):
                 skip_next = True
                 continue
 
