@@ -1,4 +1,4 @@
-.PHONY: all run build-native build-go-runner logs clean-logs clean-media-temp clean-runtime clean storage clean-cache
+.PHONY: all run build-native build-go-runner test logs clean-logs clean-media-temp clean-runtime clean storage clean-cache
 
 PYTHON ?= python3
 GO ?= go
@@ -6,7 +6,7 @@ GO_CACHE := $(CURDIR)/.cache/go-build
 
 all: run
 
-LOG_PATTERNS := *.log *.log.[0-9]* ffmpeg-*.log dvd_*.log
+LOG_PATTERNS := *.log *.log.[0-9]* ffmpeg-*.log dvd_*.log dvdvob_*.txt
 LOG_DIR := logs
 LOG_SEARCH_PATHS := . $(LOG_DIR)
 GO_TARGET := bin/dvd_homebrew_runner
@@ -25,6 +25,10 @@ build-go-runner:
 run: build-native build-go-runner clean-logs
 	$(PYTHON) main.py
 
+test: build-native build-go-runner clean-logs
+	$(PYTHON) -m py_compile main.py dvdapp/*.py dvdapp/execution/*.py dvdapp/execution/runners/*.py dvdapp/extraction/*.py dvdapp/extraction/strategies/*.py dvdapp/models/*.py dvdapp/native_runtime/*.py
+	$(PYTHON) -m unittest discover -s tests -p "test_*.py"
+
 logs:
 	@mkdir -p $(LOG_DIR)
 	@echo "Server logs:"
@@ -41,6 +45,7 @@ clean-logs:
 
 clean-media-temp:
 	@find storage_local build_go_homebrew /tmp -maxdepth 1 -type f \( -name ".dvd_native_title_*.vob" -o -name "homebrew_title_*.vob" \) -delete 2>/dev/null || true
+	@find /tmp -maxdepth 1 -type f \( -name "dvdvob_concat_*.txt" -o -name "dvdvob_copy_*.txt" \) -delete 2>/dev/null || true
 	@echo "Temporary media artifacts cleaned"
 
 clean-runtime:
@@ -51,6 +56,7 @@ clean-runtime:
 	@find . -name "__pycache__" -type d -prune -exec rm -rf {} +
 	@find . \( -name "*.pyc" -o -name "*.pyo" \) -type f -delete
 	@rm -f $(GO_TARGET)
+	@rm -rf build_go_homebrew
 	@echo "Python runtime cleaned"
 
 clean-cache:

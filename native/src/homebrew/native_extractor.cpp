@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <iostream>
+#include <sstream>
 #include <utility>
 #include <unistd.h>
 
@@ -105,10 +106,33 @@ fs::path NativeDvdExtractor::build_temp_path(int title) const {
     return dir / name;
 }
 
+std::vector<SegmentProbeReport> NativeDvdExtractor::preflight_title(const TitleManifest& title) const {
+    SegmentPreflight preflight;
+    auto report = preflight.scan(title.parts);
+    preflight.assert_usable(report);
+
+    for (const auto& item : report) {
+        std::cerr << "HOMEBREW_PREFLIGHT"
+                  << " part=" << item.path.filename().string()
+                  << " size=" << item.file_size
+                  << " sample=" << item.stats.bytes
+                  << " pack_sync=" << item.stats.pack_sync_count
+                  << " sequence=" << item.stats.sequence_header_count
+                  << " nav=" << item.stats.nav_pack_count
+                  << " zero_run=" << item.stats.max_zero_run
+                  << " likely_ps=" << (item.likely_program_stream() ? "yes" : "no")
+                  << '\n';
+    }
+
+    return report;
+}
+
 std::uint64_t NativeDvdExtractor::prepare_program_stream(const TitleManifest& title, const fs::path& temp_vob) const {
     if (title.parts.empty()) {
         throw HomebrewError("selected title has no source parts");
     }
+
+    (void)preflight_title(title);
 
     if (title.parts.size() == 1u) {
         CopyEngine engine;

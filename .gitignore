@@ -219,6 +219,12 @@ __marimo__/
 
 # DVD extractor local artifacts
 storage_local/
+storage/
+logs/
+bin/
+build_go_homebrew/
 native/*.o
 native/build/
 native/dvd_entropy
+*.vob
+*.mp4

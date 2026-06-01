@@ -15,6 +15,7 @@
 void usage(const char* exe) {
     std::cerr << "usage:\n"
               << "  " << exe << " scan <VIDEO_TS_DIR>\n"
+              << "  " << exe << " preflight <VIDEO_TS_DIR> [--title N]\n"
               << "  " << exe << " copy --source <input> --output <output>\n"
               << "  " << exe << " concat --output <output> <part1> <part2> ...\n"
               << "  " << exe << " extract --video-ts <VIDEO_TS_DIR> --output <movie.mp4> [--title N] [--ffmpeg ffmpeg] [--work-dir dir] [--keep-temp]\n";
@@ -23,6 +24,7 @@ void usage(const char* exe) {
 namespace {
 
 constexpr std::string_view kCommandScan = "scan";
+constexpr std::string_view kCommandPreflight = "preflight";
 constexpr std::string_view kCommandCopy = "copy";
 constexpr std::string_view kCommandConcat = "concat";
 constexpr std::string_view kCommandExtract = "extract";
@@ -44,6 +46,21 @@ int main(int argc, char* argv[]) {
                 throw dvdextractor::homebrew::HomebrewError("scan needs <VIDEO_TS_DIR>");
             }
             command = std::make_unique<dvdextractor::homebrew::ScanCommand>(argv[2]);
+        } else if (command_name == kCommandPreflight) {
+            if (argc < 3) {
+                throw dvdextractor::homebrew::HomebrewError("preflight needs <VIDEO_TS_DIR>");
+            }
+
+            std::filesystem::path video_ts = argv[2];
+            int title = 0;
+            for (int i = 3; i < argc; ++i) {
+                const std::string arg = argv[i];
+                if (arg == "--title" && i + 1 < argc) {
+                    title = std::stoi(argv[++i]);
+                }
+            }
+
+            command = std::make_unique<dvdextractor::homebrew::PreflightCommand>(video_ts, title);
         } else if (command_name == kCommandCopy) {
             std::filesystem::path source;
             std::filesystem::path output;

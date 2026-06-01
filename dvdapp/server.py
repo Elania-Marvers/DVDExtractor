@@ -55,7 +55,7 @@ class DVDRequestHandler(BaseHTTPRequestHandler):
     def _serve_index(self) -> None:
         self._serve_static("/index.html")
 
-    def _serve_static(self, request_path: str) -> None:
+    def _serve_static(self, request_path: str, head_only: bool = False) -> None:
         requested = (request_path or "/").lstrip("/")
         if requested.startswith("static/"):
             requested = requested.removeprefix("static/")
@@ -99,12 +99,34 @@ class DVDRequestHandler(BaseHTTPRequestHandler):
         self.send_header("Expires", "0")
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
-        self.wfile.write(data)
+        if not head_only:
+            self.wfile.write(data)
 
     def do_OPTIONS(self):
         self.send_response(204)
         self._set_cors_headers()
         self.end_headers()
+
+    def do_HEAD(self):
+        parsed = urlparse(self.path)
+        try:
+            if parsed.path in ("/", "/index.html"):
+                self._serve_static("/index.html", head_only=True)
+                return
+
+            if parsed.path.startswith("/static/"):
+                self._serve_static(parsed.path, head_only=True)
+                return
+
+            self.send_response(404)
+            self._set_cors_headers()
+            self.end_headers()
+        except Exception as exc:
+            logging.exception("Unhandled HEAD error for %s", self.path)
+            self.send_response(500)
+            self._set_cors_headers()
+            self.send_header("X-Error", str(exc)[:200])
+            self.end_headers()
 
     def _read_json(self) -> tuple[dict | None, str | None]:
         try:

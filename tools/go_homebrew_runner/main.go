@@ -164,6 +164,10 @@ func runExtract(r *Runner, args []string) {
 		fatalf("cannot create output directory %s: %v", filepath.Dir(absOutput), err)
 	}
 
+	if err := preflightTitle(ctx, r, *videoTS, title); err != nil {
+		fatal(err.Error())
+	}
+
 	tmpVob := filepath.Join(*workDir, fmt.Sprintf("homebrew_title_%02d_%d.vob", title, time.Now().UnixNano()))
 	if err := prepareVob(ctx, r, parts, tmpVob); err != nil {
 		fatal(err.Error())
@@ -180,7 +184,7 @@ func runExtract(r *Runner, args []string) {
 		}
 	}
 
-	fmt.Printf(`{"status":"ok","title":%d,"output":%q}\n`, title, absOutput)
+	fmt.Printf("{\"status\":\"ok\",\"title\":%d,\"output\":%q}\n", title, absOutput)
 }
 
 func pickTitle(videoTS string, requested int, r *Runner) (int, []string, error) {
@@ -224,6 +228,24 @@ func pickTitle(videoTS string, requested int, r *Runner) (int, []string, error) 
 		return 0, nil, errors.New("first title in scan has no VOB parts")
 	}
 	return best.ID, best.Parts, nil
+}
+
+func preflightTitle(ctx context.Context, r *Runner, videoTS string, title int) error {
+	cmdRes, exitCode, err := runCommand(ctx, r.Homebrew, "preflight", videoTS, "--title", strconv.Itoa(title))
+	if err != nil {
+		return fmt.Errorf("native preflight failed (code=%d): %w", exitCode, err)
+	}
+	if exitCode != 0 {
+		return fmt.Errorf("native preflight returned code %d", exitCode)
+	}
+
+	if stderr := strings.TrimSpace(cmdRes.stderr); stderr != "" {
+		fmt.Fprintln(os.Stderr, stderr)
+	}
+	if stdout := strings.TrimSpace(cmdRes.stdout); stdout != "" {
+		fmt.Printf("preflight=ok %s\n", stdout)
+	}
+	return nil
 }
 
 func prepareVob(ctx context.Context, r *Runner, parts []string, output string) error {

@@ -3,7 +3,7 @@
 CC = clang
 CXX = clang++
 PKG_CONFIG = pkg-config
-CFLAGS = -O3 -fPIC
+CFLAGS = -O3 -fPIC -Iinclude
 CPPFLAGS = -O3 -std=c++17 -Iinclude
 AR = ar
 BUILD_DIR = build
@@ -26,6 +26,7 @@ CPP_SOURCES = \
 	src/homebrew/native_extractor.cpp \
 	src/homebrew/process_runner.cpp \
 	src/homebrew/progress_ticker.cpp \
+	src/homebrew/segment_preflight.cpp \
 	src/homebrew/transfer_engines.cpp \
 	src/homebrew/vob_scanner.cpp \
 	src/homebrew/main.cpp \
@@ -35,7 +36,8 @@ CPP_SOURCES = \
 
 CPP_OBJECTS = $(CPP_SOURCES:src/%.cpp=build/%.o)
 
-C_SOURCES = src/asm/entropy_bridge.c
+C_SOURCES = src/asm/entropy_bridge.c \
+	src/homebrew/mpeg_probe.c
 C_OBJECTS = $(C_SOURCES:src/%.c=build/%.o)
 
 ASM_SOURCES = src/asm/asm_sum.s \
@@ -72,9 +74,13 @@ $(BUILD_DIR)/dvd_homebrew: build/homebrew/main.o \
 		build/homebrew/native_extractor.o \
 		build/homebrew/process_runner.o \
 		build/homebrew/progress_ticker.o \
+		build/homebrew/segment_preflight.o \
 		build/homebrew/transfer_engines.o \
 		build/homebrew/vob_scanner.o \
-		build/asm/io_ops.o
+		build/homebrew/mpeg_probe.o \
+		build/asm/io_ops.o \
+		build/asm/mem_ops.o \
+		build/asm/string_ops.o
 	mkdir -p $(BUILD_DIR)
 	$(CXX) $(CPPFLAGS) $^ -o $@
 

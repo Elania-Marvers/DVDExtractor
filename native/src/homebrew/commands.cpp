@@ -11,6 +11,7 @@
 #include "common/json_escape.h"
 #include "common/perf.h"
 #include "homebrew/native_extractor.h"
+#include "homebrew/segment_preflight.h"
 #include "homebrew/transfer_engines.h"
 #include "homebrew/vob_scanner.h"
 #include "homebrew/errors.h"
@@ -55,6 +56,59 @@ std::string build_scan_json(const fs::path& video_ts, const std::vector<TitleMan
     return out.str();
 }
 
+TitleManifest pick_manifest_title(const std::vector<TitleManifest>& titles, int requested) {
+    if (titles.empty()) {
+        throw HomebrewError("no VOB title found in VIDEO_TS");
+    }
+
+    if (requested > 0) {
+        for (const auto& title : titles) {
+            if (title.title == requested) {
+                return title;
+            }
+        }
+        throw HomebrewError("requested title not found: " + std::to_string(requested));
+    }
+
+    return titles.front();
+}
+
+std::string build_preflight_json(
+    const fs::path& video_ts,
+    const TitleManifest& title,
+    const std::vector<SegmentProbeReport>& report) {
+    std::ostringstream out;
+    out << '{';
+    out << "\"video_ts\":\"" << common::json_escape(video_ts.string()) << "\",";
+    out << "\"title\":" << title.title << ',';
+    out << "\"parts\":[";
+
+    for (std::size_t i = 0; i < report.size(); ++i) {
+        const auto& item = report[i];
+        if (i > 0) {
+            out << ',';
+        }
+
+        out << '{';
+        out << "\"path\":\"" << common::json_escape(item.path.string()) << "\",";
+        out << "\"size\":" << common::u64_to_decimal(item.file_size) << ',';
+        out << "\"sample_bytes\":" << common::u64_to_decimal(item.stats.bytes) << ',';
+        out << "\"pack_sync\":" << common::u64_to_decimal(item.stats.pack_sync_count) << ',';
+        out << "\"system_headers\":" << common::u64_to_decimal(item.stats.system_header_count) << ',';
+        out << "\"sequence_headers\":" << common::u64_to_decimal(item.stats.sequence_header_count) << ',';
+        out << "\"nav_packs\":" << common::u64_to_decimal(item.stats.nav_pack_count) << ',';
+        out << "\"max_zero_run\":" << common::u64_to_decimal(item.stats.max_zero_run) << ',';
+        out << "\"likely_program_stream\":" << (item.likely_program_stream() ? "true" : "false");
+        if (!item.error.empty()) {
+            out << ",\"error\":\"" << common::json_escape(item.error) << "\"";
+        }
+        out << '}';
+    }
+
+    out << "]}";
+    return out.str();
+}
+
 std::string build_copy_result_json(const fs::path& source, const fs::path& output, std::uint64_t bytes, const std::string& elapsed_ms) {
     std::ostringstream out;
     out << '{';
@@ -74,6 +128,21 @@ ScanCommand::ScanCommand(fs::path video_ts)
 int ScanCommand::execute(std::ostream& out, std::ostream&) const {
     const auto titles = VobScanner::scan_video_ts(video_ts_);
     out << build_scan_json(video_ts_, titles) << '\n';
+    return 0;
+}
+
+PreflightCommand::PreflightCommand(fs::path video_ts, int title)
+    : video_ts_(std::move(video_ts)), title_(title) {}
+
+int PreflightCommand::execute(std::ostream& out, std::ostream& err) const {
+    const auto titles = VobScanner::scan_video_ts(video_ts_);
+    const auto title = pick_manifest_title(titles, title_);
+    SegmentPreflight preflight;
+    const auto report = preflight.scan(title.parts);
+    preflight.assert_usable(report);
+
+    out << build_preflight_json(video_ts_, title, report) << '\n';
+    err << "HOMEBREW_PREFLIGHT_DONE title=" << title.title << " parts=" << report.size() << '\n';
     return 0;
 }
 

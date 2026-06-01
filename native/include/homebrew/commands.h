@@ -29,6 +29,17 @@ private:
     fs::path video_ts_;
 };
 
+class PreflightCommand : public HomebrewCommand {
+public:
+    PreflightCommand(fs::path video_ts, int title);
+
+    int execute(std::ostream& out, std::ostream& err) const override;
+
+private:
+    fs::path video_ts_;
+    int title_{0};
+};
+
 class CopyCommand : public HomebrewCommand {
 public:
     CopyCommand(fs::path source, fs::path output);

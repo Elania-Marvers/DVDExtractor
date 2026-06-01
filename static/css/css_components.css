@@ -1,9 +1,9 @@
 .table-wrap {
   border: 1px solid var(--line);
-  border-radius: 10px;
-  overflow-x: hidden;
+  border-radius: 8px;
+  overflow-x: auto;
   overflow-y: auto;
-  background: rgba(12, 6, 19, 0.74);
+  background: rgba(9, 13, 20, 0.78);
 }
 
 table {
@@ -28,8 +28,8 @@ thead th {
   position: sticky;
   top: 0;
   z-index: 2;
-  color: #e8ddff;
-  background: rgba(47, 31, 70, 0.96);
+  color: #dbeafe;
+  background: rgba(23, 33, 47, 0.98);
   text-transform: uppercase;
   font-size: 11px;
   letter-spacing: 0.06em;
@@ -74,13 +74,13 @@ tr:hover td {
 
 .btn {
   border: 0;
-  border-radius: 9px;
+  border-radius: 8px;
   padding: 7px 12px;
   font-size: 12px;
   font-weight: 600;
   color: #fff;
   cursor: pointer;
-  background: linear-gradient(95deg, #7c3aed, #5b21b6);
+  background: #0f766e;
 }
 
 .btn:hover:not(:disabled) {
@@ -93,7 +93,7 @@ tr:hover td {
 }
 
 .btn-danger {
-  background: linear-gradient(95deg, #ef4444, #991b1b);
+  background: #b91c1c;
 }
 
 .progressWrap {
@@ -112,7 +112,7 @@ tr:hover td {
   display: block;
   height: 100%;
   width: 0;
-  background: linear-gradient(90deg, #22c55e, #4ade80);
+  background: var(--accent);
 }
 
 .pre-wrap {
@@ -122,8 +122,8 @@ tr:hover td {
   overflow: auto;
   font-size: 11px;
   line-height: 1.25;
-  background: #09030f;
-  color: #f8e4ff;
+  background: #070b12;
+  color: #e2e8f0;
   border-radius: 8px;
   padding: 7px;
   border: 1px solid rgba(255, 255, 255, 0.15);
@@ -151,9 +151,9 @@ tr:hover td {
 
 .toast {
   border: 1px solid rgba(255, 255, 255, 0.22);
-  border-radius: 10px;
+  border-radius: 8px;
   padding: 9px 11px;
-  background: rgba(20, 12, 26, 0.95);
+  background: rgba(15, 23, 34, 0.98);
   color: #ecfdf3;
   font-size: 13px;
   box-shadow: var(--shadow);

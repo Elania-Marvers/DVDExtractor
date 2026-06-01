@@ -16,7 +16,7 @@ body {
   color: var(--text);
   line-height: 1.35;
   font-size: 14px;
-  background: radial-gradient(130% 130% at 0% 0%, #4c2f72 0%, #221133 35%, #120920 70%, #0a0814 100%);
+  background: linear-gradient(180deg, var(--bg-2) 0%, var(--bg-1) 100%);
   overflow-x: hidden;
 }
 
@@ -33,7 +33,7 @@ body {
 }
 
 a {
-  color: #d8b4fe;
+  color: var(--accent-2);
 }
 
 a:hover {

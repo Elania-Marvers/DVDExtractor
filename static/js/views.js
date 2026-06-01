@@ -6,6 +6,7 @@ export class DashboardRenderer {
     this.api = api;
     this.debugLines = [];
     this.errorLines = [];
+    this.counts = { drives: 0, jobs: 0, files: 0 };
   }
 
   updateStat(id, value) {
@@ -73,12 +74,13 @@ export class DashboardRenderer {
   }
 
   renderCounts(data) {
-    this.updateStat("drives-count", `${data.drives || 0} trouvé(s)`);
-    this.updateStat("jobs-count", `${data.jobs || 0} actif(s)`);
-    this.updateStat("files-count", `${data.files || 0} fichier(s)`);
-    this.updateStat("stat-drives", `Lecteurs : ${data.drives || 0}`);
-    this.updateStat("stat-jobs", `Jobs : ${data.jobs || 0}`);
-    this.updateStat("stat-files", `MP4 : ${data.files || 0}`);
+    this.counts = { ...this.counts, ...data };
+    this.updateStat("drives-count", `${this.counts.drives || 0} trouvé(s)`);
+    this.updateStat("jobs-count", `${this.counts.jobs || 0} job(s)`);
+    this.updateStat("files-count", `${this.counts.files || 0} fichier(s)`);
+    this.updateStat("stat-drives", `Lecteurs : ${this.counts.drives || 0}`);
+    this.updateStat("stat-jobs", `Jobs : ${this.counts.jobs || 0}`);
+    this.updateStat("stat-files", `MP4 : ${this.counts.files || 0}`);
   }
 
   renderMode(mode, saveMode) {

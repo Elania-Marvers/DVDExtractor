@@ -39,17 +39,16 @@ def _ensure_storage_link(storage_root: Path, storage_dirname: str, storage_link:
     target = (storage_root / storage_dirname).resolve()
     if not storage_root.exists():
         if os.environ.get("DVD_EXTRACT_ALLOW_LOCAL_FALLBACK", "1") == "1":
-            fallback = storage_link.resolve()
-            logging.warning(
-                "External storage root %s not mounted. Using local fallback %s.",
-                storage_root,
-                fallback,
-            )
-            fallback.mkdir(parents=True, exist_ok=True)
-            return fallback
+            return _local_storage_fallback(storage_root, storage_link, "not mounted")
         raise RuntimeError(f"Storage root not found: {storage_root}")
 
-    target.mkdir(parents=True, exist_ok=True)
+    try:
+        target.mkdir(parents=True, exist_ok=True)
+        _assert_writable_directory(target)
+    except OSError as exc:
+        if os.environ.get("DVD_EXTRACT_ALLOW_LOCAL_FALLBACK", "1") == "1":
+            return _local_storage_fallback(storage_root, storage_link, str(exc))
+        raise RuntimeError(f"Storage path is not writable: {target}") from exc
 
     if storage_link.exists():
         if storage_link.is_symlink():
@@ -67,12 +66,14 @@ def _ensure_storage_link(storage_root: Path, storage_dirname: str, storage_link:
                     storage_link,
                     current,
                 )
+                _assert_writable_directory(storage_link)
                 return storage_link
         elif storage_link.is_dir():
             logging.info(
                 "Storage path %s already exists as a real directory (not symlink). Using it directly.",
                 storage_link,
             )
+            _assert_writable_directory(storage_link)
             return storage_link
         else:
             raise RuntimeError(f"Cannot prepare storage location at {storage_link}")
@@ -80,3 +81,28 @@ def _ensure_storage_link(storage_root: Path, storage_dirname: str, storage_link:
     storage_link.symlink_to(target)
     logging.info("Storage symlink created: %s -> %s", storage_link, target)
     return storage_link
+
+
+def _local_storage_fallback(storage_root: Path, storage_link: Path, reason: str) -> Path:
+    fallback = storage_link.resolve()
+    logging.warning(
+        "External storage root %s unavailable (%s). Using local fallback %s.",
+        storage_root,
+        reason,
+        fallback,
+    )
+    fallback.mkdir(parents=True, exist_ok=True)
+    _assert_writable_directory(fallback)
+    return fallback
+
+
+def _assert_writable_directory(path: Path) -> None:
+    path.mkdir(parents=True, exist_ok=True)
+    probe = path / f".dvdextractor-write-test-{os.getpid()}"
+    try:
+        probe.write_text("ok", encoding="utf-8")
+    finally:
+        try:
+            probe.unlink(missing_ok=True)
+        except OSError:
+            pass

@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "homebrew/models.h"
+#include "homebrew/segment_preflight.h"
 
 namespace fs = std::filesystem;
 
@@ -37,6 +38,7 @@ public:
 private:
     [[nodiscard]] TitleManifest pick_title(const std::vector<TitleManifest>& titles) const;
     [[nodiscard]] fs::path build_temp_path(int title) const;
+    [[nodiscard]] std::vector<SegmentProbeReport> preflight_title(const TitleManifest& title) const;
     [[nodiscard]] std::uint64_t prepare_program_stream(const TitleManifest& title, const fs::path& temp_vob) const;
     [[nodiscard]] bool transcode_to_mp4(const fs::path& input_vob) const;
     [[nodiscard]] std::vector<std::string> build_ffmpeg_args(
