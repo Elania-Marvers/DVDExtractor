@@ -42,6 +42,29 @@ def build_copy_command(output: str, source: str | Path) -> list[str] | None:
     return [str(HOMEBREW_TOOL), "copy", "--source", str(source_path), "--output", str(output)]
 
 
+def build_demux_command(
+    input_path: str | Path,
+    output_dir: str | Path | None = None,
+    *,
+    extract_payloads: bool = True,
+    max_bytes: int | None = None,
+) -> list[str] | None:
+    source_path = Path(input_path)
+    if not source_path.is_file() or not is_homebrew_available():
+        return None
+
+    args = [str(HOMEBREW_TOOL), "demux", "--input", str(source_path)]
+    if extract_payloads:
+        if not output_dir:
+            return None
+        args.extend(["--output-dir", str(output_dir)])
+    else:
+        args.append("--no-payload")
+    if max_bytes and max_bytes > 0:
+        args.extend(["--max-bytes", str(int(max_bytes))])
+    return args
+
+
 def build_extract_command(
     video_ts: str | Path,
     output: str,

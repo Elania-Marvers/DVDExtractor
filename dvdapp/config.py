@@ -21,7 +21,9 @@ def build_settings(host: str, port: int, poll_interval: float) -> Settings:
     project_root = Path(__file__).resolve().parents[1]
     storage_root = Path(os.environ.get("DVD_EXTRACT_STORAGE_ROOT", "/Volumes/mac_s1")).expanduser()
     storage_dirname = os.environ.get("DVD_EXTRACT_STORAGE_DIRNAME", "dvd_mp4")
-    storage_link = Path(os.environ.get("DVD_EXTRACT_STORAGE_LINK", str(project_root / "storage"))).resolve()
+    storage_link = Path(os.environ.get("DVD_EXTRACT_STORAGE_LINK", str(project_root / "storage"))).expanduser()
+    if not storage_link.is_absolute():
+        storage_link = project_root / storage_link
     storage_path = _ensure_storage_link(storage_root, storage_dirname, storage_link)
 
     return Settings(
@@ -84,7 +86,7 @@ def _ensure_storage_link(storage_root: Path, storage_dirname: str, storage_link:
 
 
 def _local_storage_fallback(storage_root: Path, storage_link: Path, reason: str) -> Path:
-    fallback = storage_link.resolve()
+    fallback = Path(os.environ.get("DVD_EXTRACT_LOCAL_FALLBACK", str(storage_link.parent / "storage_local"))).resolve()
     logging.warning(
         "External storage root %s unavailable (%s). Using local fallback %s.",
         storage_root,

@@ -11,6 +11,7 @@
 #include "common/json_escape.h"
 #include "common/perf.h"
 #include "homebrew/native_extractor.h"
+#include "homebrew/program_stream_demuxer.h"
 #include "homebrew/segment_preflight.h"
 #include "homebrew/transfer_engines.h"
 #include "homebrew/vob_scanner.h"
@@ -120,6 +121,53 @@ std::string build_copy_result_json(const fs::path& source, const fs::path& outpu
     return out.str();
 }
 
+std::string hex_byte(std::uint8_t value) {
+    std::ostringstream out;
+    out << "0x" << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(value);
+    return out.str();
+}
+
+std::string build_demux_json(const DemuxSummary& summary, const std::string& elapsed_ms) {
+    std::ostringstream out;
+    out << '{';
+    out << "\"input\":\"" << common::json_escape(summary.input.string()) << "\",";
+    out << "\"output_dir\":\"" << common::json_escape(summary.output_dir.string()) << "\",";
+    out << "\"input_bytes\":" << common::u64_to_decimal(summary.input_bytes) << ',';
+    out << "\"consumed_bytes\":" << common::u64_to_decimal(summary.consumed_bytes) << ',';
+    out << "\"pack_headers\":" << common::u64_to_decimal(summary.pack_headers) << ',';
+    out << "\"system_headers\":" << common::u64_to_decimal(summary.system_headers) << ',';
+    out << "\"pes_packets\":" << common::u64_to_decimal(summary.pes_packets) << ',';
+    out << "\"video_packets\":" << common::u64_to_decimal(summary.video_packets) << ',';
+    out << "\"audio_packets\":" << common::u64_to_decimal(summary.audio_packets) << ',';
+    out << "\"private_packets\":" << common::u64_to_decimal(summary.private_packets) << ',';
+    out << "\"skipped_packets\":" << common::u64_to_decimal(summary.skipped_packets) << ',';
+    out << "\"truncated_packets\":" << common::u64_to_decimal(summary.truncated_packets) << ',';
+    out << "\"elapsed_ms\":" << elapsed_ms << ',';
+    out << "\"streams\":[";
+
+    for (std::size_t i = 0; i < summary.streams.size(); ++i) {
+        const auto& stream = summary.streams[i];
+        if (i > 0) {
+            out << ',';
+        }
+        out << '{';
+        out << "\"stream_id\":\"" << hex_byte(stream.stream_id) << "\",";
+        if (stream.has_substream) {
+            out << "\"substream_id\":\"" << hex_byte(stream.substream_id) << "\",";
+        }
+        out << "\"kind\":\"" << common::json_escape(stream.kind) << "\",";
+        out << "\"packets\":" << common::u64_to_decimal(stream.packets) << ',';
+        out << "\"payload_bytes\":" << common::u64_to_decimal(stream.payload_bytes);
+        if (!stream.output_path.empty()) {
+            out << ",\"output\":\"" << common::json_escape(stream.output_path.string()) << "\"";
+        }
+        out << '}';
+    }
+
+    out << "]}";
+    return out.str();
+}
+
 }  // namespace
 
 ScanCommand::ScanCommand(fs::path video_ts)
@@ -179,6 +227,31 @@ int ConcatCommand::execute(std::ostream& out, std::ostream& err) const {
     out << "\"elapsed_ms\":" << elapsed_ms << "}\n";
 
     err << "HOMEBREW_DONE command=concat output=" << output_.string() << " bytes=" << bytes << '\n';
+    return 0;
+}
+
+DemuxCommand::DemuxCommand(fs::path input, fs::path output_dir, bool extract_payloads, std::uint64_t max_bytes)
+    : input_(std::move(input))
+    , output_dir_(std::move(output_dir))
+    , extract_payloads_(extract_payloads)
+    , max_bytes_(max_bytes) {}
+
+int DemuxCommand::execute(std::ostream& out, std::ostream& err) const {
+    ProgramStreamDemuxer demuxer(ProgramStreamDemuxer::Options{
+        input_,
+        output_dir_,
+        extract_payloads_,
+        max_bytes_,
+    });
+
+    const auto start = std::chrono::steady_clock::now();
+    const auto summary = demuxer.run();
+    const auto stop = std::chrono::steady_clock::now();
+
+    out << build_demux_json(summary, format_elapsed_ms(start, stop)) << '\n';
+    err << "HOMEBREW_DONE command=demux input=" << input_.string()
+        << " streams=" << summary.streams.size()
+        << " pes=" << summary.pes_packets << '\n';
     return 0;
 }
 

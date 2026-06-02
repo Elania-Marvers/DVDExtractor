@@ -23,12 +23,15 @@ CPP_SOURCES = \
 	src/analysis/entropy.cpp \
 	src/homebrew/commands.cpp \
 	src/homebrew/file_copier.cpp \
+	src/homebrew/ifo_audio.cpp \
 	src/homebrew/native_extractor.cpp \
+	src/homebrew/program_stream_demuxer.cpp \
 	src/homebrew/process_runner.cpp \
 	src/homebrew/progress_ticker.cpp \
 	src/homebrew/segment_preflight.cpp \
 	src/homebrew/transfer_engines.cpp \
 	src/homebrew/vob_scanner.cpp \
+	src/ifo_probe/ifo_probe.cpp \
 	src/homebrew/main.cpp \
 	src/reader_dump/dvd_reader_dump.cpp \
 	src/signal_probe/dvd_signal_probe.cpp \
@@ -37,7 +40,8 @@ CPP_SOURCES = \
 CPP_OBJECTS = $(CPP_SOURCES:src/%.cpp=build/%.o)
 
 C_SOURCES = src/asm/entropy_bridge.c \
-	src/homebrew/mpeg_probe.c
+	src/homebrew/mpeg_probe.c \
+	src/homebrew/ps_demux.c
 C_OBJECTS = $(C_SOURCES:src/%.c=build/%.o)
 
 ASM_SOURCES = src/asm/asm_sum.s \
@@ -50,6 +54,7 @@ ASM_OBJECTS = $(ASM_SOURCES:src/%.s=build/%.o)
 TARGETS = $(BUILD_DIR)/dvd_entropy \
 		$(BUILD_DIR)/dvd_vob_manifest \
 		$(BUILD_DIR)/dvd_reader_dump \
+		$(BUILD_DIR)/dvd_ifo_probe \
 		$(BUILD_DIR)/dvd_homebrew \
 		$(BUILD_DIR)/dvd_signal_probe \
 		$(BUILD_DIR)/byte_sum_bench
@@ -68,21 +73,28 @@ $(BUILD_DIR)/dvd_reader_dump: build/reader_dump/dvd_reader_dump.o
 	mkdir -p $(BUILD_DIR)
 	$(CXX) $(CPPFLAGS) $^ -o $@ $(PKG_LDFLAGS)
 
+$(BUILD_DIR)/dvd_ifo_probe: build/ifo_probe/ifo_probe.o
+	mkdir -p $(BUILD_DIR)
+	$(CXX) $(CPPFLAGS) $^ -o $@ $(PKG_LDFLAGS)
+
 $(BUILD_DIR)/dvd_homebrew: build/homebrew/main.o \
 		build/homebrew/commands.o \
 		build/homebrew/file_copier.o \
+		build/homebrew/ifo_audio.o \
 		build/homebrew/native_extractor.o \
+		build/homebrew/program_stream_demuxer.o \
 		build/homebrew/process_runner.o \
 		build/homebrew/progress_ticker.o \
 		build/homebrew/segment_preflight.o \
 		build/homebrew/transfer_engines.o \
 		build/homebrew/vob_scanner.o \
 		build/homebrew/mpeg_probe.o \
+		build/homebrew/ps_demux.o \
 		build/asm/io_ops.o \
 		build/asm/mem_ops.o \
 		build/asm/string_ops.o
 	mkdir -p $(BUILD_DIR)
-	$(CXX) $(CPPFLAGS) $^ -o $@
+	$(CXX) $(CPPFLAGS) $^ -o $@ $(PKG_LDFLAGS)
 
 $(BUILD_DIR)/dvd_signal_probe: build/signal_probe/dvd_signal_probe.o build/analysis/entropy.o $(C_OBJECTS) $(ASM_OBJECTS)
 	mkdir -p $(BUILD_DIR)

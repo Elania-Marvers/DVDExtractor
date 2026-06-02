@@ -22,6 +22,21 @@ def make_vob_payload(seed: int) -> bytes:
     return bytes(block) * 2
 
 
+def make_pes(stream_id: int, payload: bytes) -> bytes:
+    pes_header = b"\x80\x80\x00"
+    length = len(pes_header) + len(payload)
+    return b"\x00\x00\x01" + bytes([stream_id]) + length.to_bytes(2, "big") + pes_header + payload
+
+
+def make_demux_payload() -> bytes:
+    pack = b"\x00\x00\x01\xba" + b"\x44\x00\x04\x00\x04\x01\x89\xc3\xf8\x00"
+    system = b"\x00\x00\x01\xbb" + (6).to_bytes(2, "big") + b"\x80\x04\xe1\x7f\xe0\xe0"
+    video = make_pes(0xE0, b"\x00\x00\x01\xb3VIDEO_PAYLOAD")
+    private_header = b"\x80\x00\x00\x01"
+    audio = make_pes(0xBD, private_header + b"\x0b\x77AC3_PAYLOAD")
+    return pack + system + video + audio + b"\x00\x00\x01\xb9"
+
+
 class NativeHomebrewSmokeTest(unittest.TestCase):
     def setUp(self) -> None:
         if not HOMEBREW.exists():
@@ -77,6 +92,39 @@ class NativeHomebrewSmokeTest(unittest.TestCase):
         expected_size = sum(Path(part).stat().st_size for part in parts)
         self.assertEqual(output.stat().st_size, expected_size)
         self.assertEqual(output.read_bytes()[:4], b"\x00\x00\x01\xba")
+
+    def test_demux_extracts_video_and_ac3_payloads_without_ffmpeg(self) -> None:
+        input_vob = self.root / "demux.vob"
+        output_dir = self.root / "demuxed"
+        input_vob.write_bytes(make_demux_payload())
+
+        result = self.run_homebrew("demux", "--input", str(input_vob), "--output-dir", str(output_dir))
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+        payload = json.loads(result.stdout)
+        kinds = {item["kind"] for item in payload["streams"]}
+        self.assertIn("video", kinds)
+        self.assertIn("ac3", kinds)
+        self.assertGreater(payload["pes_packets"], 0)
+
+        video_path = output_dir / "stream_e0.m2v"
+        audio_path = output_dir / "stream_bd_80.ac3"
+        self.assertTrue(video_path.exists())
+        self.assertTrue(audio_path.exists())
+        self.assertIn(b"VIDEO_PAYLOAD", video_path.read_bytes())
+        self.assertEqual(audio_path.read_bytes()[:2], b"\x0b\x77")
+
+    def test_demux_can_inspect_without_writing_payloads(self) -> None:
+        input_vob = self.root / "inspect.vob"
+        input_vob.write_bytes(make_demux_payload())
+
+        result = self.run_homebrew("demux", "--input", str(input_vob), "--no-payload")
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["output_dir"], "")
+        self.assertFalse(any("output" in item for item in payload["streams"]))
+        self.assertGreaterEqual(payload["video_packets"], 1)
 
 
 if __name__ == "__main__":

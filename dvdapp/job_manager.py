@@ -473,7 +473,10 @@ class RipManager:
             if "invalid argument" in lower:
                 return line
             if "permission denied" in lower:
-                return line
+                return (
+                    f"{line} | Permission refusee: relance le serveur avec les droits adaptes "
+                    "ou corrige le dossier cible avec `sudo chown -R $(id -un) <dossier>`."
+                )
             if "unable" in lower:
                 return line
 

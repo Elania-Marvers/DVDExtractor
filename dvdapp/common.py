@@ -26,6 +26,14 @@ def run_cmd(command, timeout: int = 8, check: bool = False, cwd: Optional[Path] 
         )
     except FileNotFoundError:
         return CommandResult(127, "", f"command not found: {command[0]}")
+    except subprocess.TimeoutExpired as exc:
+        stdout = exc.stdout or ""
+        stderr = exc.stderr or ""
+        if isinstance(stdout, bytes):
+            stdout = stdout.decode("utf-8", errors="replace")
+        if isinstance(stderr, bytes):
+            stderr = stderr.decode("utf-8", errors="replace")
+        return CommandResult(124, stdout, stderr or f"command timed out after {timeout}s: {command[0]}")
     if check and proc.returncode != 0:
         raise subprocess.CalledProcessError(proc.returncode, command, output=proc.stdout, stderr=proc.stderr)
     return CommandResult(proc.returncode, proc.stdout or "", proc.stderr or "")

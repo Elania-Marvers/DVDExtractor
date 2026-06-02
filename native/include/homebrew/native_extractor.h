@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "homebrew/models.h"
+#include "homebrew/program_stream_demuxer.h"
 #include "homebrew/segment_preflight.h"
 
 namespace fs = std::filesystem;
@@ -22,6 +23,7 @@ public:
         std::string ffmpeg{"ffmpeg"};
         int title{0};
         bool keep_temp{false};
+        std::string preferred_audio_language{"fr"};
     };
 
     struct Result {
@@ -38,11 +40,16 @@ public:
 private:
     [[nodiscard]] TitleManifest pick_title(const std::vector<TitleManifest>& titles) const;
     [[nodiscard]] fs::path build_temp_path(int title) const;
+    [[nodiscard]] fs::path build_demux_dir(int title) const;
     [[nodiscard]] std::vector<SegmentProbeReport> preflight_title(const TitleManifest& title) const;
     [[nodiscard]] std::uint64_t prepare_program_stream(const TitleManifest& title, const fs::path& temp_vob) const;
-    [[nodiscard]] bool transcode_to_mp4(const fs::path& input_vob) const;
+    void inspect_program_stream(const fs::path& input_vob) const;
+    [[nodiscard]] bool demux_then_transcode_to_mp4(const fs::path& input_vob, const fs::path& demux_dir, int title) const;
+    [[nodiscard]] bool transcode_to_mp4(const fs::path& input_vob, int title) const;
+    [[nodiscard]] std::vector<std::string> build_ffmpeg_demux_args(const DemuxSummary& summary, int title) const;
     [[nodiscard]] std::vector<std::string> build_ffmpeg_args(
         const fs::path& input_vob,
+        int title,
         bool with_audio,
         bool force_mpeg_input) const;
     [[nodiscard]] bool valid_output() const;

@@ -93,7 +93,7 @@ export class DashboardRenderer {
     if (hint) {
       hint.textContent =
         mode === "engineer"
-          ? "Mode ingénieur: stratégies supplémentaires + native + retries ciblés."
+          ? "Mode ingénieur: stratégies natives, demux C/C++/ASM et retries ciblés."
           : "Mode normal: pipeline ffmpeg standard.";
     }
     if (normalBtn) normalBtn.classList.toggle("active", mode !== "engineer");

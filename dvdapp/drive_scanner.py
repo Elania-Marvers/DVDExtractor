@@ -28,6 +28,7 @@ class DriveScanner:
     DRUTIL_HEADER = re.compile(r"^\s*(\d+)\:\s*(.+)$")
     KEY_VALUE = re.compile(r"^\s*([^:]+)\:\s*(.*)$")
     DISK_DEVICE_RE = re.compile(r"^/dev/rdisk(\d+)(?:s\d+)?$")
+    FAST_PROBE_TIMEOUT_SECONDS = 3
 
     def list_drives(self) -> List[dict]:
         drives = self._from_drutil()
@@ -40,6 +41,12 @@ class DriveScanner:
             logging.warning("drutil returned results but no optical candidate was detected.")
 
         logging.warning("drutil unavailable or no drives found; using fallback probe.")
+        mounted = self._from_mounted_video_ts()
+        if mounted:
+            normalized = self._normalize_and_filter(mounted)
+            self._apply_disc_labels(normalized)
+            return [drive.__dict__ for drive in normalized]
+
         drives = self._from_diskutil_fallback()
         normalized = self._normalize_and_filter(drives)
         self._apply_disc_labels(normalized)
@@ -47,6 +54,9 @@ class DriveScanner:
 
     def _apply_disc_labels(self, drives: List[DriveInfo]) -> None:
         for drive in drives:
+            if drive.source == "mount" and drive.name:
+                continue
+
             label = self._guess_disc_label(drive.device)
             if not label:
                 continue
@@ -205,6 +215,17 @@ class DriveScanner:
 
     def _from_diskutil_fallback(self) -> List[DriveInfo]:
         drives: List[DriveInfo] = []
+        listing = run_cmd(["diskutil", "list"], timeout=self.FAST_PROBE_TIMEOUT_SECONDS)
+        if listing.return_code == 0:
+            listing_text = (listing.stdout or "").lower()
+            if not (
+                "cd_partition_scheme" in listing_text
+                or "optical" in listing_text
+                or "dvd" in listing_text
+                or "cd-rom" in listing_text
+            ):
+                return []
+
         for node in sorted(glob.glob("/dev/rdisk[0-9]*")):
             if not self._is_disk_root(node):
                 continue
@@ -213,7 +234,7 @@ class DriveScanner:
             if not path.is_char_device():
                 continue
 
-            info = run_cmd(["diskutil", "info", node], timeout=8)
+            info = run_cmd(["diskutil", "info", node], timeout=self.FAST_PROBE_TIMEOUT_SECONDS)
             if info.return_code != 0:
                 continue
 
@@ -246,6 +267,61 @@ class DriveScanner:
                 )
             )
         return drives
+
+    def _from_mounted_video_ts(self) -> List[DriveInfo]:
+        volumes = Path("/Volumes")
+        if not volumes.exists():
+            return []
+
+        mount_devices = self._mounted_volume_devices()
+        drives: List[DriveInfo] = []
+        for volume in volumes.iterdir():
+            if not volume.is_dir() or not (volume / "VIDEO_TS").is_dir():
+                continue
+
+            device = mount_devices.get(str(volume))
+            if not device:
+                info = run_cmd(["diskutil", "info", str(volume)], timeout=self.FAST_PROBE_TIMEOUT_SECONDS)
+                if info.return_code == 0:
+                    device = self._extract_value(info.stdout, "Device Node") or device
+                    if device.startswith("/dev/disk"):
+                        device = device.replace("/dev/disk", "/dev/rdisk", 1)
+
+            if not device:
+                logging.debug("mounted VIDEO_TS volume has no device node: %s", volume)
+                continue
+
+            drives.append(
+                DriveInfo(
+                    device=device,
+                    name=volume.name,
+                    drive_type="DVD volume",
+                    inserted=True,
+                    state="inserted",
+                    source="mount",
+                )
+            )
+        return drives
+
+    @classmethod
+    def _mounted_volume_devices(cls) -> dict[str, str]:
+        result = run_cmd(["mount"], timeout=cls.FAST_PROBE_TIMEOUT_SECONDS)
+        if result.return_code != 0:
+            return {}
+
+        devices: dict[str, str] = {}
+        for line in result.stdout.splitlines():
+            source, _, right = line.partition(" on ")
+            if not right:
+                continue
+            mountpoint = right.split(" (", 1)[0].strip()
+            if not mountpoint.startswith("/Volumes/"):
+                continue
+            source = source.strip()
+            if source.startswith("/dev/disk"):
+                source = source.replace("/dev/disk", "/dev/rdisk", 1)
+            devices[mountpoint] = source
+        return devices
 
     @staticmethod
     def _extract_value(text: str, key: str) -> str:
@@ -283,7 +359,7 @@ class DriveScanner:
 
     @staticmethod
     def _guess_disc_label(device: str) -> str:
-        result = run_cmd(["diskutil", "info", device], timeout=8)
+        result = run_cmd(["diskutil", "info", device], timeout=DriveScanner.FAST_PROBE_TIMEOUT_SECONDS)
         if result.return_code != 0:
             return ""
         return (

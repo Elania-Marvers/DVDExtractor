@@ -4,6 +4,7 @@
 #include <iostream>
 #include <ostream>
 
+#include <cstdint>
 #include <filesystem>
 #include <string>
 #include <string_view>
@@ -18,6 +19,7 @@ void usage(const char* exe) {
               << "  " << exe << " preflight <VIDEO_TS_DIR> [--title N]\n"
               << "  " << exe << " copy --source <input> --output <output>\n"
               << "  " << exe << " concat --output <output> <part1> <part2> ...\n"
+              << "  " << exe << " demux --input <program.vob> --output-dir <dir> [--no-payload] [--max-bytes N]\n"
               << "  " << exe << " extract --video-ts <VIDEO_TS_DIR> --output <movie.mp4> [--title N] [--ffmpeg ffmpeg] [--work-dir dir] [--keep-temp]\n";
 }
 
@@ -27,6 +29,7 @@ constexpr std::string_view kCommandScan = "scan";
 constexpr std::string_view kCommandPreflight = "preflight";
 constexpr std::string_view kCommandCopy = "copy";
 constexpr std::string_view kCommandConcat = "concat";
+constexpr std::string_view kCommandDemux = "demux";
 constexpr std::string_view kCommandExtract = "extract";
 
 }  // namespace
@@ -99,6 +102,35 @@ int main(int argc, char* argv[]) {
             }
 
             command = std::make_unique<dvdextractor::homebrew::ConcatCommand>(output, parts);
+        } else if (command_name == kCommandDemux) {
+            std::filesystem::path input;
+            std::filesystem::path output_dir;
+            bool extract_payloads = true;
+            std::uint64_t max_bytes = 0;
+
+            for (int i = 2; i < argc; ++i) {
+                const std::string arg = argv[i];
+                if (arg == "--input" && i + 1 < argc) {
+                    input = argv[++i];
+                } else if (arg == "--output-dir" && i + 1 < argc) {
+                    output_dir = argv[++i];
+                } else if (arg == "--no-payload") {
+                    extract_payloads = false;
+                } else if (arg == "--max-bytes" && i + 1 < argc) {
+                    max_bytes = static_cast<std::uint64_t>(std::stoull(argv[++i]));
+                }
+            }
+
+            if (input.empty() || (extract_payloads && output_dir.empty())) {
+                usage(argv[0]);
+                return 2;
+            }
+
+            command = std::make_unique<dvdextractor::homebrew::DemuxCommand>(
+                input,
+                output_dir,
+                extract_payloads,
+                max_bytes);
         } else if (command_name == kCommandExtract) {
             std::filesystem::path video_ts;
             std::filesystem::path output;

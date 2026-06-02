@@ -46,6 +46,7 @@ clean-logs:
 clean-media-temp:
 	@find storage_local build_go_homebrew /tmp -maxdepth 1 -type f \( -name ".dvd_native_title_*.vob" -o -name "homebrew_title_*.vob" \) -delete 2>/dev/null || true
 	@find /tmp -maxdepth 1 -type f \( -name "dvdvob_concat_*.txt" -o -name "dvdvob_copy_*.txt" \) -delete 2>/dev/null || true
+	@find /tmp -maxdepth 2 -type f \( -name "stream_*.m2v" -o -name "stream_*.ac3" -o -name "stream_*.dts" -o -name "stream_*.mpa" -o -name "stream_*.sup" -o -name "stream_*.bin" \) -delete 2>/dev/null || true
 	@echo "Temporary media artifacts cleaned"
 
 clean-runtime:

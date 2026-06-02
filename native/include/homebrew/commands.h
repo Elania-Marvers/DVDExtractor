@@ -1,6 +1,7 @@
 #ifndef DVDEXTRACTOR_HOMEBREW_COMMANDS_H_
 #define DVDEXTRACTOR_HOMEBREW_COMMANDS_H_
 
+#include <cstdint>
 #include <iosfwd>
 #include <memory>
 #include <string>
@@ -60,6 +61,19 @@ public:
 private:
     fs::path output_;
     std::vector<fs::path> parts_;
+};
+
+class DemuxCommand : public HomebrewCommand {
+public:
+    DemuxCommand(fs::path input, fs::path output_dir, bool extract_payloads, std::uint64_t max_bytes);
+
+    int execute(std::ostream& out, std::ostream& err) const override;
+
+private:
+    fs::path input_;
+    fs::path output_dir_;
+    bool extract_payloads_{true};
+    std::uint64_t max_bytes_{0};
 };
 
 class ExtractCommand : public HomebrewCommand {
