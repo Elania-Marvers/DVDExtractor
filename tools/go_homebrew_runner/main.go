@@ -19,7 +19,8 @@ import (
 )
 
 const (
-	defaultWorkDir = "build_go_homebrew"
+	defaultExtractTimeoutSeconds = 7200
+	defaultWorkDir               = "build_go_homebrew"
 )
 
 type TitleManifest struct {
@@ -130,7 +131,7 @@ func runExtract(r *Runner, args []string) {
 	titleID := fs.Int("title", 0, "Optional title id")
 	ffmpeg := fs.String("ffmpeg", r.Ffmpeg, "ffmpeg binary")
 	homebrew := fs.String("homebrew", r.Homebrew, "Path to dvd_homebrew binary")
-	timeout := fs.Int("timeout", 1200, "Timeout in seconds for each external command")
+	timeout := fs.Int("timeout", defaultExtractTimeoutSeconds, "Timeout in seconds for each external command")
 	workDir := fs.String("work-dir", defaultWorkDir, "Temporary work directory")
 	_ = fs.Parse(args)
 
@@ -149,11 +150,6 @@ func runExtract(r *Runner, args []string) {
 		fatalf("invalid output path: %v", err)
 	}
 
-	title, parts, err := pickTitle(*videoTS, *titleID, r)
-	if err != nil {
-		fatal(err.Error())
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(*timeout)*time.Second)
 	defer cancel()
 
@@ -164,27 +160,39 @@ func runExtract(r *Runner, args []string) {
 		fatalf("cannot create output directory %s: %v", filepath.Dir(absOutput), err)
 	}
 
-	if err := preflightTitle(ctx, r, *videoTS, title); err != nil {
-		fatal(err.Error())
+	nativeArgs := []string{
+		"extract",
+		"--video-ts",
+		*videoTS,
+		"--output",
+		absOutput,
+		"--ffmpeg",
+		r.Ffmpeg,
+		"--work-dir",
+		*workDir,
+	}
+	if *titleID > 0 {
+		nativeArgs = append(nativeArgs, "--title", strconv.Itoa(*titleID))
 	}
 
-	tmpVob := filepath.Join(*workDir, fmt.Sprintf("homebrew_title_%02d_%d.vob", title, time.Now().UnixNano()))
-	if err := prepareVob(ctx, r, parts, tmpVob); err != nil {
-		fatal(err.Error())
-	}
-	defer os.Remove(tmpVob)
-
-	fmt.Printf("preprocess=ok title=%d temp=%s\n", title, tmpVob)
-
-	err = transcodeToMp4(ctx, r.Ffmpeg, tmpVob, absOutput, true)
+	returnCode, stderrText, err := runCommandWithProgress(
+		ctx,
+		r.Homebrew,
+		nativeArgs,
+		func(line string) {
+			fmt.Fprintln(os.Stderr, line)
+		},
+		"native-extract",
+	)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "audio transcode failed, fallback sans audio: %v\n", err)
-		if fallbackErr := transcodeToMp4(ctx, r.Ffmpeg, tmpVob, absOutput, false); fallbackErr != nil {
-			fatalf("ffmpeg fallback failed: %v", fallbackErr)
-		}
+		fatalf("native extract failed (code=%d): %v\n%s", returnCode, err, strings.TrimSpace(stderrText))
 	}
 
-	fmt.Printf("{\"status\":\"ok\",\"title\":%d,\"output\":%q}\n", title, absOutput)
+	if err := verifyFileNonZero(absOutput); err != nil {
+		fatalf("native extract produced invalid output: %v", err)
+	}
+
+	fmt.Printf("{\"status\":\"ok\",\"title\":%d,\"output\":%q}\n", *titleID, absOutput)
 }
 
 func pickTitle(videoTS string, requested int, r *Runner) (int, []string, error) {

@@ -38,6 +38,26 @@ bool native_es_transcode_enabled() {
     return value != nullptr && std::string(value) == "1";
 }
 
+bool is_two_letter_language(const std::string& code) {
+    if (code.size() != 2u) {
+        return false;
+    }
+    return (code[0] >= 'a' && code[0] <= 'z') && (code[1] >= 'a' && code[1] <= 'z');
+}
+
+std::string normalized_preferred_language(const std::string& code) {
+    if (is_two_letter_language(code)) {
+        return code;
+    }
+    if (code == "fra") {
+        return "fr";
+    }
+    if (code == "eng") {
+        return "en";
+    }
+    return "fr";
+}
+
 fs::path dvdread_source_for(const fs::path& video_ts) {
     if (video_ts.filename() == "VIDEO_TS" || video_ts.filename() == "video_ts") {
         return video_ts.parent_path();
@@ -128,6 +148,7 @@ NativeDvdExtractor::NativeDvdExtractor(Options options)
     if (options_.ffmpeg.empty()) {
         options_.ffmpeg = "ffmpeg";
     }
+    options_.preferred_audio_language = normalized_preferred_language(options_.preferred_audio_language);
 }
 
 NativeDvdExtractor::Result NativeDvdExtractor::extract() const {

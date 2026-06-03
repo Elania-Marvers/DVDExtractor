@@ -15,6 +15,8 @@ from .base import ExtractionPlanStrategy
 
 LOGGER = logging.getLogger(__name__)
 _VOB_FILE_RE = re.compile(r"^VTS_(\d{1,2})_(\d{1,2})\.VOB$", re.IGNORECASE)
+_FALLBACK_MOVIE_TIMEOUT_SECONDS = 60 * 120
+_FALLBACK_MOVIE_MIN_DURATION_SECONDS = 60 * 20
 
 
 class VobPlanStrategy(ExtractionPlanStrategy):
@@ -41,7 +43,11 @@ class VobPlanStrategy(ExtractionPlanStrategy):
         commands: list[dict] = []
 
         for title_id, parts in titles:
-            commands.extend(self._build_title_commands(title_id, parts, output, mount_point))
+            commands.extend(self._build_title_commands(title_id, parts, output, mount_point, engineer_mode=engineer_mode))
+
+        for command in commands:
+            command.setdefault("timeout", self._movie_timeout())
+            command.setdefault("min_duration_seconds", self._movie_min_duration())
 
         return commands
 
@@ -200,7 +206,8 @@ class VobPlanStrategy(ExtractionPlanStrategy):
                 "argv": cmd,
                 "input_format": "go-homebrew",
                 "input_source": str(video_ts),
-                "timeout": self.profile.command_timeout,
+                "timeout": self._movie_timeout(),
+                "min_duration_seconds": self._movie_min_duration(),
             }
         ]
 
@@ -237,7 +244,8 @@ class VobPlanStrategy(ExtractionPlanStrategy):
                 "input_format": "native-homebrew-mp4",
                 "input_source": str(video_ts),
                 "output_path": output,
-                "timeout": self.profile.command_timeout,
+                "timeout": self._movie_timeout(),
+                "min_duration_seconds": self._movie_min_duration(),
             }
         ]
 
@@ -355,7 +363,7 @@ class VobPlanStrategy(ExtractionPlanStrategy):
             output,
         ]
 
-        return [
+        commands = [
             {
                 "label": f"Homebrew VOB titre VTS_{title_id:02d}{source_label} (pré-concat copy + transcode)",
                 "tool": "pipeline",
@@ -400,12 +408,20 @@ class VobPlanStrategy(ExtractionPlanStrategy):
             },
         ]
 
+        for command in commands:
+            command.setdefault("timeout", self._movie_timeout())
+            command.setdefault("min_duration_seconds", self._movie_min_duration())
+
+        return commands
+
     def _build_title_commands(
         self,
         title_id: int,
         parts: list[Path],
         output: str,
         mount_point: Path,
+        *,
+        engineer_mode: bool = False,
     ) -> list[dict]:
         commands: list[dict] = []
 
@@ -415,6 +431,9 @@ class VobPlanStrategy(ExtractionPlanStrategy):
         if self.profile.go_runner_available:
             commands.extend(self.build_go_runner_vob_commands(title_id, parts, output, mount_point))
 
+        if not engineer_mode:
+            return commands
+
         if self.profile.homebrew_available:
             commands.extend(self.build_homebrew_vob_commands(title_id, parts, output, mount_point))
 
@@ -423,7 +442,24 @@ class VobPlanStrategy(ExtractionPlanStrategy):
         else:
             commands.extend(self.build_vob_concat_commands(title_id, parts, output, mount_point))
 
+        for command in commands:
+            command.setdefault("timeout", self._movie_timeout())
+            command.setdefault("min_duration_seconds", self._movie_min_duration())
+
         return commands
+
+    def _movie_timeout(self) -> int:
+        try:
+            configured = int(self.profile.command_timeout)
+        except Exception:
+            configured = 0
+        return max(configured, _FALLBACK_MOVIE_TIMEOUT_SECONDS)
+
+    def _movie_min_duration(self) -> int:
+        try:
+            return int(getattr(self.profile.manager, "MIN_MOVIE_DURATION_SECONDS"))
+        except Exception:
+            return _FALLBACK_MOVIE_MIN_DURATION_SECONDS
 
     def _build_direct_vob_commands(
         self,

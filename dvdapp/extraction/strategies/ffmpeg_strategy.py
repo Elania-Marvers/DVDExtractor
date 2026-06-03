@@ -5,6 +5,7 @@ import logging
 from .base import ExtractionPlanStrategy, FfmpegProfileSpec
 
 LOGGER = logging.getLogger(__name__)
+_FALLBACK_MIN_MOVIE_DURATION_SECONDS = 60 * 20
 
 
 class FfmpegSourcePlanStrategy(ExtractionPlanStrategy):
@@ -55,6 +56,7 @@ class FfmpegSourcePlanStrategy(ExtractionPlanStrategy):
 
         if command_timeout is None:
             command_timeout = self.profile.command_timeout
+        min_duration = self._movie_min_duration()
 
         if not self.profile.ffmpeg:
             return
@@ -160,6 +162,7 @@ class FfmpegSourcePlanStrategy(ExtractionPlanStrategy):
                     "input_format": "mpeg",
                     "input_source": source,
                     "timeout": command_timeout,
+                    "min_duration_seconds": min_duration,
                 }
             )
 
@@ -196,6 +199,7 @@ class FfmpegSourcePlanStrategy(ExtractionPlanStrategy):
                     "input_format": "mpeg",
                     "input_source": source,
                     "timeout": command_timeout,
+                    "min_duration_seconds": min_duration,
                 }
             )
 
@@ -205,6 +209,12 @@ class FfmpegSourcePlanStrategy(ExtractionPlanStrategy):
         except Exception as exc:  # pragma: no cover - isolation from I/O
             LOGGER.debug("ffmpeg source probe failed for %s: %s", source, exc)
             return False
+
+    def _movie_min_duration(self) -> int:
+        try:
+            return int(getattr(self.profile.manager, "MIN_MOVIE_DURATION_SECONDS"))
+        except Exception:
+            return _FALLBACK_MIN_MOVIE_DURATION_SECONDS
 
 
 # Compatibility class name used in older modules/tests.

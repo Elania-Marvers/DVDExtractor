@@ -29,10 +29,11 @@ from .models import RipJob
 
 class RipManager:
     MIN_OUTPUT_BYTES = 1 * 1024 * 1024
-    DEFAULT_CMD_TIMEOUT_SECONDS = 60 * 20
+    DEFAULT_CMD_TIMEOUT_SECONDS = 60 * 120
     COMMAND_IDLE_POLL_SECONDS = 0.25
-    MAX_STALL_READ_ITERATIONS = 1200
+    MAX_STALL_READ_ITERATIONS = 14400
     MIN_OUTPUT_DURATION_SECONDS = 1.0
+    MIN_MOVIE_DURATION_SECONDS = 60 * 20
     MAX_ATTEMPT_FAILURE_LINES = 40
     MAX_LOG_LINES = 240
     SOURCE_PROBE_BYTES = 128 * 1024
@@ -72,6 +73,8 @@ class RipManager:
     def list_files(self) -> List[dict]:
         files: List[dict] = []
         for mp4 in sorted(self.storage_path.glob("*.mp4"), key=lambda p: p.stat().st_mtime, reverse=True):
+            if mp4.name.startswith("."):
+                continue
             try:
                 size = mp4.stat().st_size
                 modified = datetime.fromtimestamp(mp4.stat().st_mtime).isoformat()
@@ -231,7 +234,10 @@ class RipManager:
                 self._cleanup_command_artifacts(command)
                 return
 
-            if return_code == 0 and self._verify_output(output_path):
+            if return_code == 0 and self._verify_output(
+                output_path,
+                min_duration_seconds=command.get("min_duration_seconds"),
+            ):
                 self._cleanup_command_artifacts(command)
                 self._complete_job(job_id)
                 self._append_job_note(job_id, "Extraction terminée avec succès")
@@ -511,7 +517,7 @@ class RipManager:
         except OSError as exc:
             logging.warning("unable to remove stale output %s: %s", path, exc)
 
-    def _verify_output(self, output_path: Path) -> bool:
+    def _verify_output(self, output_path: Path, min_duration_seconds: float | int | None = None) -> bool:
         try:
             if not output_path.exists() or output_path.stat().st_size < self.MIN_OUTPUT_BYTES:
                 return False
@@ -554,9 +560,21 @@ class RipManager:
                 return False
 
             fmt = payload.get("format", {}) or {}
+            duration_threshold = self.MIN_OUTPUT_DURATION_SECONDS
+            if min_duration_seconds is not None:
+                try:
+                    duration_threshold = max(duration_threshold, float(min_duration_seconds))
+                except (TypeError, ValueError):
+                    logging.warning("invalid min duration hint for %s: %r", output_path, min_duration_seconds)
+
             duration = float(fmt.get("duration", "0") or 0)
-            if duration < self.MIN_OUTPUT_DURATION_SECONDS:
-                logging.warning("ffprobe duration too short for %s: %.3fs", output_path, duration)
+            if duration < duration_threshold:
+                logging.warning(
+                    "ffprobe duration too short for %s: %.3fs < %.3fs",
+                    output_path,
+                    duration,
+                    duration_threshold,
+                )
                 return False
 
             return True

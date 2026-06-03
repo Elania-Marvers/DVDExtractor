@@ -26,6 +26,10 @@ def build_extract_command(video_ts: str | Path, output: str, title: int | None =
     if not is_go_runner_available():
         return None
 
+    output_path = Path(output)
+    timeout = os.environ.get("DVD_EXTRACT_COMMAND_TIMEOUT", "7200")
+    work_dir = output_path.parent if output_path.parent else Path(".")
+
     args: list[str] = [
         str(GO_TOOL),
         "extract",
@@ -34,7 +38,9 @@ def build_extract_command(video_ts: str | Path, output: str, title: int | None =
         "--output",
         str(output),
         "--timeout",
-        "1200",
+        timeout,
+        "--work-dir",
+        str(work_dir),
     ]
 
     if title:

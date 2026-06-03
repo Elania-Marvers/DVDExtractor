@@ -271,6 +271,7 @@ int ExtractCommand::execute(std::ostream& out, std::ostream& err) const {
         ffmpeg_.empty() ? "ffmpeg" : ffmpeg_,
         title_,
         keep_temp_,
+        "fr",
     });
 
     const auto result = extractor.extract();
