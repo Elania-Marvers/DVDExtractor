@@ -7,18 +7,8 @@ from .native_probe import analyze_sample
 
 
 def detect_encryption(device: str) -> dict:
-    # Primary probe: lsdvd outputs explicit protection info when available.
-    lsdvd_result = run_cmd(["lsdvd", device], timeout=12)
-    if lsdvd_result.return_code == 0 and lsdvd_result.stdout.strip():
-        txt = (lsdvd_result.stdout + "\n" + lsdvd_result.stderr).lower()
-        encrypted = _extract_flag(txt)
-        if encrypted is not None:
-            return {
-                "encrypted": encrypted,
-                "method": "lsdvd",
-                "raw": _read_line_excerpt(lsdvd_result.stdout),
-            }
-
+    # Fast native probe first: optical tools such as lsdvd can block for several seconds
+    # while the web UI is polling /api/drives.
     sample = analyze_sample(device)
     if sample and isinstance(sample, dict):
         entropy = sample.get("entropy")
@@ -30,6 +20,18 @@ def detect_encryption(device: str) -> dict:
                 "method": "entropy",
                 "entropy": entropy,
                 "byte_sum": sample.get("byte_sum"),
+            }
+
+    # Fallback probe: lsdvd outputs explicit protection info when available.
+    lsdvd_result = run_cmd(["lsdvd", device], timeout=3)
+    if lsdvd_result.return_code == 0 and lsdvd_result.stdout.strip():
+        txt = (lsdvd_result.stdout + "\n" + lsdvd_result.stderr).lower()
+        encrypted = _extract_flag(txt)
+        if encrypted is not None:
+            return {
+                "encrypted": encrypted,
+                "method": "lsdvd",
+                "raw": _read_line_excerpt(lsdvd_result.stdout),
             }
 
     return {"encrypted": None, "method": "unknown"}

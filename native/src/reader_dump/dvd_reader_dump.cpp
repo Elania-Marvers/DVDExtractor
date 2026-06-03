@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <chrono>
 #include <charconv>
 #include <cstdint>
@@ -120,6 +121,19 @@ int cmd_dump_title(const std::string& source, int title, const std::filesystem::
         return 12;
     }
 
+    dvd_stat_t stats{};
+    if (DVDFileStat(dvd, title, DVD_READ_TITLE_VOBS, &stats) != 0 || stats.size <= 0) {
+        DVDClose(dvd);
+        std::cerr << "Cannot stat title " << title << " on source\n";
+        return 18;
+    }
+    const auto expected_blocks = static_cast<std::uint64_t>(stats.size / DVD_VIDEO_LB_LEN);
+    if (expected_blocks == 0u) {
+        DVDClose(dvd);
+        std::cerr << "Title " << title << " has no readable blocks\n";
+        return 19;
+    }
+
     dvd_file_t* file = DVDOpenFile(dvd, title, DVD_READ_TITLE_VOBS);
     if (!file) {
         DVDClose(dvd);
@@ -152,8 +166,13 @@ int cmd_dump_title(const std::string& source, int title, const std::filesystem::
     std::uint64_t offset_blocks = 0;
     std::uint64_t total_blocks = 0;
     std::uint64_t total_bytes = 0;
-    while (true) {
-        const int read_blocks = DVDReadBlocks(file, static_cast<int>(offset_blocks), max_blocks_per_read, buffer.data());
+    while (offset_blocks < expected_blocks) {
+        const auto remaining_blocks = expected_blocks - offset_blocks;
+        const int request_blocks = static_cast<int>(
+            std::min<std::uint64_t>(remaining_blocks, static_cast<std::uint64_t>(max_blocks_per_read)));
+        assert(request_blocks > 0);
+
+        const int read_blocks = DVDReadBlocks(file, static_cast<int>(offset_blocks), request_blocks, buffer.data());
         if (read_blocks < 0) {
             std::cerr << "Read failed at block " << offset_blocks << '\n';
             DVDCloseFile(file);
@@ -161,8 +180,12 @@ int cmd_dump_title(const std::string& source, int title, const std::filesystem::
             return 15;
         }
         if (read_blocks == 0) {
-            break;
+            std::cerr << "Short read at block " << offset_blocks << " of " << expected_blocks << '\n';
+            DVDCloseFile(file);
+            DVDClose(dvd);
+            return 15;
         }
+        assert(read_blocks <= request_blocks);
 
         const auto payload = static_cast<std::size_t>(read_blocks) * DVD_VIDEO_LB_LEN;
         out.write(reinterpret_cast<const char*>(buffer.data()), static_cast<std::streamsize>(payload));
@@ -200,6 +223,7 @@ int cmd_dump_title(const std::string& source, int title, const std::filesystem::
               << "\"source\":" << '"' << dvdextractor::common::json_escape(source) << "\","
               << "\"title\":" << title << ','
               << "\"blocks\":" << total_blocks << ','
+              << "\"expected_blocks\":" << expected_blocks << ','
               << "\"bytes\":" << total_bytes << ','
               << "\"output\":" << '"' << dvdextractor::common::json_escape(output.string()) << "\","
               << "\"elapsed_ms\":" << elapsed_ms

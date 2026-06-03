@@ -1,7 +1,12 @@
 #include "homebrew/native_extractor.h"
 
+#include <dvdread/dvd_reader.h>
+
+#include <algorithm>
+#include <cassert>
 #include <chrono>
 #include <cstdlib>
+#include <fstream>
 #include <iostream>
 #include <sstream>
 #include <utility>
@@ -32,6 +37,70 @@ bool native_es_transcode_enabled() {
     const char* value = std::getenv("DVD_EXTRACT_NATIVE_ES_TRANSCODE");
     return value != nullptr && std::string(value) == "1";
 }
+
+fs::path dvdread_source_for(const fs::path& video_ts) {
+    if (video_ts.filename() == "VIDEO_TS" || video_ts.filename() == "video_ts") {
+        return video_ts.parent_path();
+    }
+    return video_ts;
+}
+
+std::uint64_t dvd_title_block_count_or_throw(dvd_reader_t* dvd, int title) {
+    dvd_stat_t stats{};
+    if (DVDFileStat(dvd, title, DVD_READ_TITLE_VOBS, &stats) != 0 || stats.size <= 0) {
+        throw HomebrewError("libdvdread cannot stat title: " + std::to_string(title));
+    }
+
+    const auto blocks = static_cast<std::uint64_t>(stats.size / DVD_VIDEO_LB_LEN);
+    if (blocks == 0u) {
+        throw HomebrewError("libdvdread title has no readable blocks: " + std::to_string(title));
+    }
+    return blocks;
+}
+
+class DvdReaderHandle final {
+public:
+    explicit DvdReaderHandle(const fs::path& source)
+        : handle_(DVDOpen(source.string().c_str())) {}
+
+    ~DvdReaderHandle() {
+        if (handle_ != nullptr) {
+            DVDClose(handle_);
+        }
+    }
+
+    DvdReaderHandle(const DvdReaderHandle&) = delete;
+    DvdReaderHandle& operator=(const DvdReaderHandle&) = delete;
+
+    [[nodiscard]] dvd_reader_t* get() const {
+        return handle_;
+    }
+
+private:
+    dvd_reader_t* handle_{nullptr};
+};
+
+class DvdTitleHandle final {
+public:
+    DvdTitleHandle(dvd_reader_t* dvd, int title)
+        : handle_(dvd == nullptr ? nullptr : DVDOpenFile(dvd, title, DVD_READ_TITLE_VOBS)) {}
+
+    ~DvdTitleHandle() {
+        if (handle_ != nullptr) {
+            DVDCloseFile(handle_);
+        }
+    }
+
+    DvdTitleHandle(const DvdTitleHandle&) = delete;
+    DvdTitleHandle& operator=(const DvdTitleHandle&) = delete;
+
+    [[nodiscard]] dvd_file_t* get() const {
+        return handle_;
+    }
+
+private:
+    dvd_file_t* handle_{nullptr};
+};
 
 std::string mp4_language_code(const std::string& code) {
     if (code == "fr") {
@@ -179,6 +248,17 @@ std::uint64_t NativeDvdExtractor::prepare_program_stream(const TitleManifest& ti
 
     (void)preflight_title(title);
 
+    try {
+        const auto prepared = prepare_program_stream_with_dvdread(title.title, temp_vob);
+        if (prepared > 0u) {
+            return prepared;
+        }
+    } catch (const std::exception& exc) {
+        std::cerr << "HOMEBREW_DVDREAD failed=" << exc.what()
+                  << " fallback=filesystem"
+                  << '\n';
+    }
+
     if (title.parts.size() == 1u) {
         CopyEngine engine;
         return engine.copy(temp_vob, title.parts.front());
@@ -186,6 +266,104 @@ std::uint64_t NativeDvdExtractor::prepare_program_stream(const TitleManifest& ti
 
     ConcatEngine engine;
     return engine.concat(temp_vob, title.parts);
+}
+
+std::uint64_t NativeDvdExtractor::prepare_program_stream_with_dvdread(int title, const fs::path& temp_vob) const {
+    if (title <= 0) {
+        return 0u;
+    }
+
+    const fs::path source = dvdread_source_for(options_.video_ts);
+    if (source.empty()) {
+        return 0u;
+    }
+
+    DvdReaderHandle dvd(source);
+    if (dvd.get() == nullptr) {
+        throw HomebrewError("libdvdread cannot open source: " + source.string());
+    }
+
+    const std::uint64_t expected_blocks = dvd_title_block_count_or_throw(dvd.get(), title);
+
+    DvdTitleHandle file(dvd.get(), title);
+    if (file.get() == nullptr) {
+        throw HomebrewError("libdvdread cannot open title: " + std::to_string(title));
+    }
+
+    if (temp_vob.has_parent_path()) {
+        fs::create_directories(temp_vob.parent_path());
+    }
+
+    std::ofstream out(temp_vob, std::ios::binary);
+    if (!out) {
+        throw HomebrewError("cannot open libdvdread output: " + temp_vob.string());
+    }
+
+    constexpr int kBlocksPerRead = 1024;
+    constexpr std::size_t kBytesPerRead = static_cast<std::size_t>(kBlocksPerRead) * DVD_VIDEO_LB_LEN;
+    std::vector<std::uint8_t> buffer(kBytesPerRead);
+
+    std::uint64_t total_blocks = 0u;
+    std::uint64_t total_bytes = 0u;
+    const auto start = std::chrono::steady_clock::now();
+    auto last_report = start;
+
+    while (total_blocks < expected_blocks) {
+        const auto remaining_blocks = expected_blocks - total_blocks;
+        const int request_blocks = static_cast<int>(
+            std::min<std::uint64_t>(remaining_blocks, static_cast<std::uint64_t>(kBlocksPerRead)));
+        assert(request_blocks > 0);
+
+        const int read_blocks = DVDReadBlocks(
+            file.get(),
+            static_cast<int>(total_blocks),
+            request_blocks,
+            buffer.data());
+        if (read_blocks < 0) {
+            throw HomebrewError("libdvdread read failed at block " + std::to_string(total_blocks));
+        }
+        if (read_blocks == 0) {
+            throw HomebrewError(
+                "libdvdread short read at block " + std::to_string(total_blocks) +
+                " of " + std::to_string(expected_blocks));
+        }
+        assert(read_blocks <= request_blocks);
+
+        const auto payload = static_cast<std::size_t>(read_blocks) * DVD_VIDEO_LB_LEN;
+        out.write(reinterpret_cast<const char*>(buffer.data()), static_cast<std::streamsize>(payload));
+        if (!out) {
+            throw HomebrewError("libdvdread output write failed: " + temp_vob.string());
+        }
+
+        total_blocks += static_cast<std::uint64_t>(read_blocks);
+        total_bytes += static_cast<std::uint64_t>(payload);
+
+        const auto now = std::chrono::steady_clock::now();
+        if (std::chrono::duration_cast<std::chrono::milliseconds>(now - last_report).count() >= 600) {
+            std::cerr << "HOMEBREW_PROGRESS"
+                      << " cmd=dvdread"
+                      << " output=" << temp_vob.string()
+                      << " blocks=" << total_blocks
+                      << " expected_blocks=" << expected_blocks
+                      << " bytes=" << total_bytes
+                      << '\n';
+            last_report = now;
+        }
+    }
+
+    out.close();
+    if (total_bytes == 0u) {
+        throw HomebrewError("libdvdread produced empty VOB");
+    }
+
+    std::cerr << "HOMEBREW_DVDREAD"
+              << " source=" << source.string()
+              << " title=" << title
+              << " blocks=" << total_blocks
+              << " expected_blocks=" << expected_blocks
+              << " bytes=" << total_bytes
+              << '\n';
+    return total_bytes;
 }
 
 void NativeDvdExtractor::inspect_program_stream(const fs::path& input_vob) const {
@@ -496,6 +674,15 @@ std::vector<std::string> NativeDvdExtractor::build_ffmpeg_args(
             if (item.language == options_.preferred_audio_language && item.substream_id >= 0x80u) {
                 preferred_audio_indexes.push_back(static_cast<unsigned int>(item.substream_id - 0x80u));
             }
+        }
+        if (!options_.preferred_audio_language.empty() && preferred_audio_indexes.empty()) {
+            std::cerr << "HOMEBREW_AUDIO_SELECT"
+                      << " backend=vob"
+                      << " index=0"
+                      << " lang=" << options_.preferred_audio_language
+                      << " fallback=first_audio"
+                      << '\n';
+            preferred_audio_indexes.push_back(0u);
         }
 
         args.insert(args.end(), {

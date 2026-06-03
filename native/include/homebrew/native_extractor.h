@@ -43,6 +43,7 @@ private:
     [[nodiscard]] fs::path build_demux_dir(int title) const;
     [[nodiscard]] std::vector<SegmentProbeReport> preflight_title(const TitleManifest& title) const;
     [[nodiscard]] std::uint64_t prepare_program_stream(const TitleManifest& title, const fs::path& temp_vob) const;
+    [[nodiscard]] std::uint64_t prepare_program_stream_with_dvdread(int title, const fs::path& temp_vob) const;
     void inspect_program_stream(const fs::path& input_vob) const;
     [[nodiscard]] bool demux_then_transcode_to_mp4(const fs::path& input_vob, const fs::path& demux_dir, int title) const;
     [[nodiscard]] bool transcode_to_mp4(const fs::path& input_vob, int title) const;
